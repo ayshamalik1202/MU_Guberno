@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}MU Guberno{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            muBrand: '#1B2A6B',
+            muAccent: '#C8102E',
+            muGray: '#f4f6fa',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .transition-all-custom {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .hidden-form {
+      display: none !important;
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-muGray min-h-screen flex items-center justify-center p-4 font-sans">
+
+  {% block content %}
+  {% endblock %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Student Dashboard - MU Gubernob{% endblock %}
+
+{% block content %}
+<div class="container mt-4" style="color: #ffffff;">
+    
+    <!-- Welcome Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Welcome back, <span class="text-primary">{{ student.name if student else 'Student' }}</span>!</h2>
+            <p class="text-muted mb-0">ID: {{ student.student_id if student else 'N/A' }}</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-success fs-6">Academic Status: Active</span>
+        </div>
+    </div>
+
+    <!-- Quick Stats Row -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
+                <h6 class="text-muted">Current CGPA</h6>
+                <h2 class="fw-bold text-info mb-0">{{ student.gpa if student.gpa else 'N/A' }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
+                <h6 class="text-muted">Completed Credits</h6>
+                <h2 class="fw-bold text-success mb-0">{{ completed_credits if completed_credits else '0' }} / 140</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
+                <h6 class="text-muted">Remaining Credits</h6>
+                <h2 class="fw-bold text-warning mb-0">{{ remaining_credits if remaining_credits else '140' }}</h2>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
+                <h6 class="text-muted">Passed Courses</h6>
+                <h2 class="fw-bold text-primary mb-0">{{ completed_courses_count if completed_courses_count else '0' }}</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Action Cards -->
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100" style="background-color: #1e1e2e;">
+                <div class="card-body">
+                    <h5 class="card-title text-primary"><i class="bi bi-file-earmark-text"></i> Transcripts & Results</h5>
+                    <p class="card-text text-muted">View full academic transcripts or semester-wise breakdown of your grades.</p>
+                    <a href="{{ url_for('student.transcript') }}" class="btn btn-outline-primary w-100">View Transcripts</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100" style="background-color: #1e1e2e;">
+                <div class="card-body">
+                    <h5 class="card-title text-success"><i class="bi bi-credit-card"></i> Pay Fees & Receipts</h5>
+                    <p class="card-text text-muted">Pay semester fees using Mobile or Online Banking and download receipts.</p>
+                    <a href="{{ url_for('student.payment') }}" class="btn btn-outline-success w-100">Make Payment</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100" style="background-color: #1e1e2e;">
+                <div class="card-body">
+                    <h5 class="card-title text-warning"><i class="bi bi-exclamation-circle"></i> Support & Complaints</h5>
+                    <p class="card-text text-muted">Submit queries regarding results, payments, or access issues directly to admin.</p>
+                    <a href="{{ url_for('student.complain') }}" class="btn btn-outline-warning w-100">Open Complaint Box</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
