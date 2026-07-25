@@ -1,65 +1,194 @@
+"""
+routes/faculty.py
+Faculty panel — view assigned course offerings and submit student results.
+
+Submitted results never touch the student-visible side directly: submitting
+here only sets submission_status = 'submitted_by_faculty'. Nothing becomes
+visible to a student until admin approves (routes/admin.py) AND the semester
+is published. A faculty member can only submit for course offerings they are
+actually assigned to (co.faculty_id check on every route).
+"""
+
+from functools import wraps
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request
 from database import get_db
-import mysql.connector
 
-faculty_bp = Blueprint('faculty', __name__)
+faculty_bp = Blueprint('faculty', __name__, url_prefix='/faculty')
 
+
+# ------------------------------------------------------------------
+# Access control: only logged-in faculty
+# ------------------------------------------------------------------
 def faculty_required(f):
-    from functools import wraps
     @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session or session.get('role') != 'faculty':
-            flash('Access denied. Faculty only.', 'danger')
+    def wrapper(*args, **kwargs):
+        if session.get('role') != 'faculty' or 'user_id' not in session:
+            flash("Please sign in as faculty to continue.", "error")
             return redirect(url_for('auth.login'))
         return f(*args, **kwargs)
-    return decorated_function
+    return wrapper
 
+
+def _get_owned_offering(cur, offering_id, faculty_id):
+    """Fetch a course offering only if it belongs to this faculty member."""
+    cur.execute("""
+        SELECT co.id, co.class_time, co.room, co.semester_id,
+               c.course_code, c.course_name, sem.name AS semester_name
+        FROM course_offerings co
+        JOIN courses c ON co.course_id = c.id
+        JOIN semesters sem ON co.semester_id = sem.id
+        WHERE co.id = %s AND co.faculty_id = %s
+    """, (offering_id, faculty_id))
+    return cur.fetchone()
+
+
+# ------------------------------------------------------------------
+# DASHBOARD — list of assigned course offerings + submission progress
+# ------------------------------------------------------------------
 @faculty_bp.route('/dashboard')
 @faculty_required
 def dashboard():
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
     faculty_id = session['user_id']
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-    
-    # Fetch assigned courses
-    cursor.execute("SELECT * FROM courses WHERE faculty_id = %s", (faculty_id,))
-    courses = cursor.fetchall()
-    
-    cursor.close()
-    db.close()
-    return render_template('faculty/dashboard.html', courses=courses)
 
-@faculty_bp.route('/course/<int:course_id>/grades', methods=['GET', 'POST'])
+    cur.execute("SELECT * FROM staff WHERE id = %s", (faculty_id,))
+    faculty = cur.fetchone()
+
+    cur.execute("""
+        SELECT co.id AS offering_id, co.class_time, co.room,
+               c.course_code, c.course_name, sem.name AS semester_name,
+               sem.is_current,
+               COUNT(e.id) AS total_students,
+               SUM(CASE WHEN e.submission_status = 'not_submitted' THEN 1 ELSE 0 END) AS ungraded_count,
+               SUM(CASE WHEN e.submission_status IN ('submitted_by_faculty', 'approved_by_admin', 'published')
+                        THEN 1 ELSE 0 END) AS graded_count
+        FROM course_offerings co
+        JOIN courses c ON co.course_id = c.id
+        JOIN semesters sem ON co.semester_id = sem.id
+        LEFT JOIN enrollments e ON e.course_offering_id = co.id
+        WHERE co.faculty_id = %s
+        GROUP BY co.id, co.class_time, co.room, c.course_code, c.course_name,
+                 sem.name, sem.is_current
+        ORDER BY sem.is_current DESC, c.course_code
+    """, (faculty_id,))
+    offerings = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('faculty/dashboard.html', faculty=faculty, offerings=offerings)
+
+
+# ------------------------------------------------------------------
+# GRADES — view/enter marks for one course offering
+# ------------------------------------------------------------------
+@faculty_bp.route('/course-offering/<int:offering_id>/grades')
 @faculty_required
-def manage_grades(course_id):
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-    
-    if request.method == 'POST':
-        student_id = request.form.get('student_id')
-        grade = request.form.get('grade')
-        
-        try:
-            cursor.execute("""
-                INSERT INTO enrollments (student_id, course_id, grade) 
-                VALUES (%s, %s, %s) 
-                ON DUPLICATE KEY UPDATE grade = %s
-            """, (student_id, course_id, grade, grade))
-            db.commit()
-            flash('Grade updated successfully!', 'success')
-        except mysql.connector.Error as err:
-            db.rollback()
-            flash(f"Error updating grade: {err}", 'danger')
-            
-    # Fetch students enrolled in this course
-    cursor.execute("""
-        SELECT s.id, s.name, s.student_id, e.grade 
-        FROM students s
-        JOIN enrollments e ON s.id = e.student_id
-        WHERE e.course_id = %s
-    """, (course_id,))
-    students = cursor.fetchall()
-    
-    cursor.close()
-    db.close()
-    return render_template('faculty/grades.html', students=students, course_id=course_id)
+def grades(offering_id):
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    faculty_id = session['user_id']
+
+    offering = _get_owned_offering(cur, offering_id, faculty_id)
+    if not offering:
+        flash("You are not assigned to that course offering.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.dashboard'))
+
+    cur.execute("""
+        SELECT e.id AS enrollment_id, e.marks_obtained, e.exam_attendance,
+               e.submission_status, e.grade, e.admin_remarks,
+               st.name AS student_name, st.student_id AS student_code
+        FROM enrollments e
+        JOIN students st ON e.student_id = st.id
+        WHERE e.course_offering_id = %s
+        ORDER BY st.name
+    """, (offering_id,))
+    roster_rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('faculty/grades.html', offering=offering, roster=roster_rows)
+
+
+# ------------------------------------------------------------------
+# SUBMIT — bulk-save marks for every editable row in the roster
+# ------------------------------------------------------------------
+@faculty_bp.route('/course-offering/<int:offering_id>/submit', methods=['POST'])
+@faculty_required
+def submit_results(offering_id):
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    faculty_id = session['user_id']
+
+    offering = _get_owned_offering(cur, offering_id, faculty_id)
+    if not offering:
+        flash("You are not assigned to that course offering.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.dashboard'))
+
+    # Only rows still in 'not_submitted' are editable — everything else
+    # (already submitted / approved / published) is locked from this side.
+    cur.execute("""
+        SELECT id FROM enrollments
+        WHERE course_offering_id = %s AND submission_status = 'not_submitted'
+    """, (offering_id,))
+    editable_ids = {row['id'] for row in cur.fetchall()}
+
+    if not editable_ids:
+        flash("No editable results for this course — everything has already been submitted.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.grades', offering_id=offering_id))
+
+    updated_count = 0
+    skipped_invalid = 0
+
+    for enrollment_id in editable_ids:
+        marks_raw = request.form.get(f'marks_{enrollment_id}', '').strip()
+        attendance = request.form.get(f'attendance_{enrollment_id}', 'present')
+
+        if attendance not in ('present', 'absent'):
+            attendance = 'present'
+
+        if attendance == 'absent':
+            marks = None
+        else:
+            if marks_raw == '':
+                skipped_invalid += 1
+                continue
+            try:
+                marks = float(marks_raw)
+            except ValueError:
+                skipped_invalid += 1
+                continue
+            if marks < 0 or marks > 100:
+                skipped_invalid += 1
+                continue
+
+        cur.execute("""
+            UPDATE enrollments
+            SET marks_obtained = %s,
+                exam_attendance = %s,
+                submission_status = 'submitted_by_faculty',
+                submitted_by = %s,
+                submitted_at = NOW(),
+                admin_remarks = NULL
+            WHERE id = %s
+        """, (marks, attendance, faculty_id, enrollment_id))
+        updated_count += 1
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    if skipped_invalid:
+        flash(
+            f"Submitted {updated_count} result(s). {skipped_invalid} row(s) were skipped "
+            f"(missing or invalid marks) — enter those and submit again.", "error"
+        )
+    else:
+        flash(f"Submitted {updated_count} result(s) for admin review.", "success")
+
+    return redirect(url_for('faculty.grades', offering_id=offering_id))

@@ -1,92 +1,114 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcript | MU Guberno</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            muGray: '#f4f6fa',
+            muSlate: '#3D5A80',
+            muRed: '#C8102E',
+            muGreen: '#1F8A50',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-muGray min-h-screen font-sans text-gray-800">
 
-{% block title %}Academic Transcript - MU Gubernob{% endblock %}
+  <div class="flex min-h-screen">
 
-{% block content %}
-<div class="container mt-4" style="color: #ffffff;">
-    
-    <!-- Title & Navigation -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4><i class="bi bi-journal-bookmark"></i> Academic Transcript</h4>
-        
-        <!-- Toggle View Buttons -->
-        <div class="btn-group" role="group">
-            <a href="{{ url_for('student.transcript', type='full') }}" 
-               class="btn btn-sm {{ 'btn-primary' if transcript_type != 'semester' else 'btn-outline-primary' }}">
-               Full Transcript
+    <!-- Sidebar (same as dashboard) -->
+    <aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
+      <div class="p-6 border-b border-gray-100">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
+      </div>
+      <nav class="flex-1 p-4 space-y-1">
+        <a href="{{ url_for('student.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Overview</a>
+        <a href="{{ url_for('student.transcript') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-muSlate">Transcript</a>
+        <a href="{{ url_for('student.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Courses &amp; Credits</a>
+        <a href="{{ url_for('student.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Semester Registration</a>
+        <a href="{{ url_for('student.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Fees &amp; Payments</a>
+        <a href="{{ url_for('student.complaints') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Complaints</a>
+        <a href="{{ url_for('student.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Profile &amp; Privacy</a>
+      </nav>
+      <div class="p-4 border-t border-gray-100">
+        <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50">Log Out</a>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex-1 p-8">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-4xl">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <h1 class="text-lg font-bold text-gray-800">Academic Transcript</h1>
+          <div class="flex bg-gray-100 p-1 rounded-xl">
+            <a href="{{ url_for('student.transcript', view='full') }}"
+               class="px-4 py-1.5 text-xs font-bold rounded-lg {{ 'bg-white text-muSlate shadow-sm' if view == 'full' else 'text-gray-500 hover:text-muSlate' }}">
+              Full Transcript
             </a>
-            <a href="{{ url_for('student.transcript', type='semester') }}" 
-               class="btn btn-sm {{ 'btn-primary' if transcript_type == 'semester' else 'btn-outline-primary' }}">
-               Semester Wise
+            <a href="{{ url_for('student.transcript', view='semester', semester_id=semesters[0].id if semesters else '') }}"
+               class="px-4 py-1.5 text-xs font-bold rounded-lg {{ 'bg-white text-muSlate shadow-sm' if view == 'semester' else 'text-gray-500 hover:text-muSlate' }}">
+              Semester-wise
             </a>
+          </div>
         </div>
-    </div>
 
-    <!-- Filter Option for Semester Wise View -->
-    {% if transcript_type == 'semester' %}
-    <div class="card p-3 border-0 mb-4" style="background-color: #1e1e2e;">
-        <form method="GET" action="{{ url_for('student.transcript') }}" class="row g-3 align-items-center">
-            <input type="hidden" name="type" value="semester">
-            <div class="col-auto">
-                <label for="semester" class="col-form-label">Select Semester:</label>
-            </div>
-            <div class="col-auto">
-                <select name="semester" id="semester" class="form-select bg-secondary text-white border-0" onchange="this.form.submit()">
-                    <option value="1" {% if selected_semester == '1' %}selected{% endif %}>Semester 1</option>
-                    <option value="2" {% if selected_semester == '2' %}selected{% endif %}>Semester 2</option>
-                    <option value="3" {% if selected_semester == '3' %}selected{% endif %}>Semester 3</option>
-                    <option value="4" {% if selected_semester == '4' %}selected{% endif %}>Semester 4</option>
-                </select>
-            </div>
+        {% if view == 'semester' %}
+        <form method="GET" action="{{ url_for('student.transcript') }}" class="mb-4">
+          <input type="hidden" name="view" value="semester">
+          <select name="semester_id" onchange="this.form.submit()" class="px-4 py-2 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-muSlate outline-none">
+            {% for sem in semesters %}
+              <option value="{{ sem.id }}" {% if sem.id == selected_semester_id %}selected{% endif %}>{{ sem.name }}</option>
+            {% endfor %}
+          </select>
         </form>
-    </div>
-    {% endif %}
+        {% endif %}
 
-    <!-- Transcript Table -->
-    <div class="card border-0 shadow-sm" style="background-color: #1e1e2e;">
-        <div class="card-body p-0">
-            <table class="table table-dark table-hover mb-0">
-                <thead>
-                    <tr class="table-secondary text-uppercase fs-7">
-                        <th>Course Code</th>
-                        <th>Course Title</th>
-                        <th>Grade</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if grades %}
-                        {% for row in grades %}
-                        <tr>
-                            <td class="fw-bold">{{ row.course_code }}</td>
-                            <td>{{ row.course_name }}</td>
-                            <td>
-                                {% if row.grade %}
-                                    <span class="badge bg-primary px-3">{{ row.grade }}</span>
-                                {% else %}
-                                    <span class="badge bg-secondary px-3">Pending</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if row.grade in ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'D'] %}
-                                    <span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Passed</span>
-                                {% elif row.grade == 'F' %}
-                                    <span class="text-danger fw-bold"><i class="bi bi-x-circle"></i> Failed</span>
-                                {% else %}
-                                    <span class="text-warning">In Progress</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted py-4">No enrollment or grade records found.</td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+              <th class="py-2 pr-4">Course Code</th>
+              <th class="py-2 pr-4">Course Title</th>
+              <th class="py-2 pr-4">Semester</th>
+              <th class="py-2 pr-4">Credits</th>
+              <th class="py-2 pr-4">Grade</th>
+              <th class="py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for row in transcript_rows %}
+            <tr>
+              <td class="py-3 pr-4 font-semibold text-gray-700">{{ row.course_code }}</td>
+              <td class="py-3 pr-4 text-gray-600">{{ row.course_name }}</td>
+              <td class="py-3 pr-4 text-gray-500">{{ row.semester_name }}</td>
+              <td class="py-3 pr-4 text-gray-500">{{ row.credits }}</td>
+              <td class="py-3 pr-4 font-bold {{ 'text-muRed' if row.grade == 'F' else 'text-muGreen' }}">{{ row.grade or "—" }}</td>
+              <td class="py-3">
+                {% if row.is_supplementary %}
+                  <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-muRed">
+                    Supplementary {% if row.exam_attendance == 'absent' %}(Absent){% endif %}
+                  </span>
+                {% else %}
+                  <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen">Passed</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="py-8 text-center text-gray-400">No published results yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
 
-</div>
-{% endblock %}
+        <button class="mt-5 text-sm font-bold text-muSlate hover:underline">Download Transcript (PDF)</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

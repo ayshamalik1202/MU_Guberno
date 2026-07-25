@@ -1,79 +1,369 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard | MU Guberno</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            muGray: '#f4f6fa',
+            muSlate: '#3D5A80',
+            muSlateDark: '#32496A',
+            muRed: '#C8102E',
+            muGreen: '#1F8A50',
+            muAmber: '#B8860B',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .hidden-panel { display: none !important; }
+    .transition-all-custom { transition: all 0.2s ease; }
+  </style>
+</head>
+<body class="bg-muGray min-h-screen font-sans text-gray-800">
 
-{% block title %}Student Dashboard - MU Gubernob{% endblock %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-xs font-semibold shadow-lg {% if category == 'success' %} bg-green-50 text-green-700 border border-green-200 {% else %} bg-red-50 text-red-700 border border-red-200 {% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
 
-{% block content %}
-<div class="container mt-4" style="color: #ffffff;">
-    
-    <!-- Welcome Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="flex min-h-screen">
+
+    <!-- ===================== SIDEBAR ===================== -->
+    <aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
+      <div class="p-6 border-b border-gray-100">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
+      </div>
+
+      <nav class="flex-1 p-4 space-y-1">
+        <button onclick="showTab('overview', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-muSlate transition-all-custom">
+          Overview
+        </button>
+        <a href="{{ url_for('student.transcript') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+          Transcript
+        </a>
+        <button onclick="showTab('courses', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+          Courses &amp; Credits
+        </button>
+        <button onclick="showTab('registration', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+          Semester Registration
+        </button>
+        <button onclick="showTab('payments', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+          Fees &amp; Payments
+        </button>
+        <a href="{{ url_for('student.complaints') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+          Complaints
+        </a>
+        <button onclick="showTab('profile', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+          Profile &amp; Privacy
+        </button>
+      </nav>
+
+      <div class="p-4 border-t border-gray-100">
+        <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50 transition-all-custom">
+          Log Out
+        </a>
+      </div>
+    </aside>
+
+    <!-- ===================== MAIN ===================== -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
         <div>
-            <h2>Welcome back, <span class="text-primary">{{ student.name if student else 'Student' }}</span>!</h2>
-            <p class="text-muted mb-0">ID: {{ student.student_id if student else 'N/A' }}</p>
+          <h1 class="text-lg font-bold text-gray-800">Welcome back, {{ student.name }}</h1>
+          <p class="text-xs text-gray-500">{{ student.student_id }}</p>
         </div>
-        <div class="text-end">
-            <span class="badge bg-success fs-6">Academic Status: Active</span>
-        </div>
-    </div>
 
-    <!-- Quick Stats Row -->
-    <div class="row g-4 mb-4">
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
-                <h6 class="text-muted">Current CGPA</h6>
-                <h2 class="fw-bold text-info mb-0">{{ student.gpa if student.gpa else 'N/A' }}</h2>
+        <div class="flex items-center gap-4">
+          <div class="relative">
+            <button onclick="toggleNotifications()" class="relative w-10 h-10 rounded-full bg-gray-50 hover:bg-gray-100 flex items-center justify-center transition-all-custom">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+              </svg>
+              {% if notifications %}
+                <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-muRed rounded-full border-2 border-white"></span>
+              {% endif %}
+            </button>
+            <div id="notif-dropdown" class="hidden-panel absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-3 z-30">
+              <p class="text-xs font-bold text-gray-400 uppercase tracking-wider px-2 pb-2">Notifications</p>
+              {% if notifications %}
+                {% for note in notifications %}
+                  <div class="p-3 rounded-lg bg-gray-50 mb-2 last:mb-0">
+                    <p class="text-sm text-gray-700">{{ note }}</p>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <p class="text-sm text-gray-400 px-2 py-3">No new notifications.</p>
+              {% endif %}
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
-                <h6 class="text-muted">Completed Credits</h6>
-                <h2 class="fw-bold text-success mb-0">{{ completed_credits if completed_credits else '0' }} / 140</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
-                <h6 class="text-muted">Remaining Credits</h6>
-                <h2 class="fw-bold text-warning mb-0">{{ remaining_credits if remaining_credits else '140' }}</h2>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card p-3 border-0 shadow-sm" style="background-color: #1e1e2e;">
-                <h6 class="text-muted">Passed Courses</h6>
-                <h2 class="fw-bold text-primary mb-0">{{ completed_courses_count if completed_courses_count else '0' }}</h2>
-            </div>
-        </div>
-    </div>
+          </div>
 
-    <!-- Quick Action Cards -->
-    <div class="row g-4">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="background-color: #1e1e2e;">
-                <div class="card-body">
-                    <h5 class="card-title text-primary"><i class="bi bi-file-earmark-text"></i> Transcripts & Results</h5>
-                    <p class="card-text text-muted">View full academic transcripts or semester-wise breakdown of your grades.</p>
-                    <a href="{{ url_for('student.transcript') }}" class="btn btn-outline-primary w-100">View Transcripts</a>
-                </div>
+          <div class="flex items-center gap-2 pl-4 border-l border-gray-100">
+            <div class="w-9 h-9 rounded-full bg-muSlate text-white flex items-center justify-center text-sm font-bold">
+              {{ student.name[0] if student and student.name else "S" }}
             </div>
+          </div>
         </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="background-color: #1e1e2e;">
-                <div class="card-body">
-                    <h5 class="card-title text-success"><i class="bi bi-credit-card"></i> Pay Fees & Receipts</h5>
-                    <p class="card-text text-muted">Pay semester fees using Mobile or Online Banking and download receipts.</p>
-                    <a href="{{ url_for('student.payment') }}" class="btn btn-outline-success w-100">Make Payment</a>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="background-color: #1e1e2e;">
-                <div class="card-body">
-                    <h5 class="card-title text-warning"><i class="bi bi-exclamation-circle"></i> Support & Complaints</h5>
-                    <p class="card-text text-muted">Submit queries regarding results, payments, or access issues directly to admin.</p>
-                    <a href="{{ url_for('student.complain') }}" class="btn btn-outline-warning w-100">Open Complaint Box</a>
-                </div>
-            </div>
-        </div>
-    </div>
+      </header>
 
-</div>
-{% endblock %}
+      <main class="p-8 space-y-6">
+
+        <!-- ===================== OVERVIEW ===================== -->
+        <section id="tab-overview" class="tab-panel space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current CGPA</p>
+              <p class="text-3xl font-extrabold text-muSlate mt-2">{{ cgpa }}</p>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Credits Completed</p>
+              <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ credits_completed }} <span class="text-base font-medium text-gray-400">/ {{ total_required }}</span></p>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Credits Remaining</p>
+              <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ credits_remaining }}</p>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+              <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Next Payment Due</p>
+              {% if payment_due %}
+                <p class="text-3xl font-extrabold text-muRed mt-2">৳{{ payment_due }}</p>
+              {% else %}
+                <p class="text-lg font-extrabold text-muGreen mt-3">All Paid</p>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            {% set progress_pct = ((credits_completed / total_required) * 100) if total_required and total_required > 0 else 0 %}
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-bold text-gray-700">Degree Progress</p>
+              <p class="text-xs font-semibold text-gray-400">
+                {{ credits_completed }} / {{ total_required }} credits ({{ progress_pct | round(0) | int }}%)
+              </p>
+            </div>
+            <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full bg-muSlate rounded-full transition-all duration-500"
+                   style="width: {{ progress_pct }}%"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== COURSES & CREDITS ===================== -->
+        <section id="tab-courses" class="tab-panel hidden-panel space-y-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-5">Full Curriculum &amp; Credit Tracker</h2>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <th class="py-2 pr-4">Course Code</th>
+                  <th class="py-2 pr-4">Course Title</th>
+                  <th class="py-2 pr-4">Credits</th>
+                  <th class="py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50">
+                {% for c in curriculum %}
+                <tr>
+                  <td class="py-3 pr-4 font-semibold text-gray-700">{{ c.course_code }}</td>
+                  <td class="py-3 pr-4 text-gray-600">{{ c.course_name }}</td>
+                  <td class="py-3 pr-4 text-gray-500">{{ c.credits }}</td>
+                  <td class="py-3">
+                    {% if c.credit_completed %}
+                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen">Completed</span>
+                    {% elif c.is_supplementary %}
+                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-muRed">Supplementary</span>
+                    {% elif c.submission_status in ('submitted_by_faculty', 'approved_by_admin') %}
+                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">Result Pending</span>
+                    {% else %}
+                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-muAmber">Remaining</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===================== SEMESTER REGISTRATION ===================== -->
+        <section id="tab-registration" class="tab-panel hidden-panel space-y-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-bold text-gray-800 mb-1">Current Semester Registration</h2>
+            <p class="text-xs text-gray-500 mb-5">{{ current_semester.name if current_semester else "No active semester" }}</p>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <th class="py-2 pr-4">Course</th>
+                  <th class="py-2 pr-4">Faculty</th>
+                  <th class="py-2 pr-4">Class Time</th>
+                  <th class="py-2">Room</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50">
+                {% for rc in registered_courses %}
+                <tr>
+                  <td class="py-3 pr-4 font-semibold text-gray-700">{{ rc.course_code }} - {{ rc.course_name }}</td>
+                  <td class="py-3 pr-4 text-gray-600">{{ rc.faculty_name or "TBA" }}</td>
+                  <td class="py-3 pr-4 text-gray-500">{{ rc.class_time or "TBA" }}</td>
+                  <td class="py-3 text-gray-500">{{ rc.room or "TBA" }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="py-6 text-center text-gray-400">No courses registered this semester.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ===================== FEES & PAYMENTS ===================== -->
+        <section id="tab-payments" class="tab-panel hidden-panel space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-1">Pay Semester Fee</h2>
+              {% if payment_due %}
+                <p class="text-xs text-gray-500 mb-5">{{ current_semester.name }} &middot; Amount due: <span class="font-bold text-muRed">৳{{ payment_due }}</span></p>
+
+                <form action="{{ url_for('student.pay') }}" method="POST" class="space-y-4">
+                  <div>
+                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">Payment Method</label>
+                    <div class="grid grid-cols-2 gap-2">
+                      <label class="border-2 border-muSlate rounded-xl p-3 flex items-center justify-center cursor-pointer text-sm font-semibold text-muSlate" id="pay-mobile-label">
+                        <input type="radio" name="pay_method" value="mobile_banking" class="sr-only" checked onclick="selectPayMethod('mobile')">
+                        Mobile Banking
+                      </label>
+                      <label class="border border-gray-200 rounded-xl p-3 flex items-center justify-center cursor-pointer text-sm font-semibold text-gray-600" id="pay-online-label">
+                        <input type="radio" name="pay_method" value="online_banking" class="sr-only" onclick="selectPayMethod('online')">
+                        Online Banking
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Account / Wallet Number</label>
+                    <input type="text" name="account_reference" required placeholder="e.g., 01XXXXXXXXX" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-muSlate outline-none text-sm">
+                  </div>
+
+                  <p class="text-xs text-gray-400">Your payment will be reviewed and verified by the admin office before a receipt is issued.</p>
+
+                  <button type="submit" class="w-full bg-muSlate text-white py-3 rounded-xl text-sm font-bold hover:bg-muSlateDark transition-all-custom">
+                    Submit Payment — ৳{{ payment_due }}
+                  </button>
+                </form>
+              {% else %}
+                <p class="text-sm text-muGreen font-semibold mt-4">You're all caught up — no payment currently due.</p>
+              {% endif %}
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 class="text-lg font-bold text-gray-800 mb-5">Payment History</h2>
+              <div class="space-y-3">
+                {% for p in payment_history %}
+                <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                  <div>
+                    <p class="text-sm font-semibold text-gray-700">{{ p.semester_name }} Semester Fee</p>
+                    <p class="text-xs text-gray-500">
+                      {{ p.method.replace('_', ' ').title() }} &middot; {{ p.submitted_at.strftime('%b %d, %Y') if p.submitted_at else 'Recent' }}
+                    </p>
+                  </div>
+                  {% if p.status == 'verified' %}
+                    <span class="text-xs font-bold text-muGreen">Verified &middot; #{{ p.receipt_no }}</span>
+                  {% elif p.status == 'rejected' %}
+                    <span class="text-xs font-bold text-muRed">Rejected</span>
+                  {% else %}
+                    <span class="text-xs font-bold text-muAmber">Pending Admin Review</span>
+                  {% endif %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-400">No payment history yet.</p>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===================== PROFILE & PRIVACY ===================== -->
+        <section id="tab-profile" class="tab-panel hidden-panel space-y-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-2xl">
+            <h2 class="text-lg font-bold text-gray-800 mb-5">Profile Information</h2>
+            <div class="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Full Name</label>
+                <input type="text" value="{{ student.name }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Student ID</label>
+                <input type="text" value="{{ student.student_id }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
+              </div>
+              <div class="col-span-2">
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
+                <input type="email" value="{{ student.email }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
+              </div>
+            </div>
+
+            <div class="border-t border-gray-100 pt-5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-bold text-gray-800">Lock Profile Visibility</p>
+                  <p class="text-xs text-gray-500 mt-1 max-w-md">When locked, only you, faculty, and admin can view your result and profile — other students cannot see it.</p>
+                </div>
+                <form action="{{ url_for('student.toggle_privacy') }}" method="POST">
+                  <button type="submit" class="relative w-12 h-7 rounded-full {{ 'bg-muSlate' if student.profile_locked else 'bg-gray-200' }} transition-all-custom shrink-0">
+                    <span class="absolute top-1 {{ 'left-6' if student.profile_locked else 'left-1' }} w-5 h-5 bg-white rounded-full shadow transition-all-custom"></span>
+                  </button>
+                </form>
+              </div>
+              <p class="text-xs font-semibold {{ 'text-muSlate' if student.profile_locked else 'text-gray-400' }} mt-3">
+                {% if student.profile_locked %}
+                  Profile is locked — only you, faculty, and admin can view it.
+                {% else %}
+                  Profile is currently visible to other students.
+                {% endif %}
+              </p>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <script>
+    function showTab(tab, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden-panel'));
+      document.getElementById(`tab-${tab}`).classList.remove('hidden-panel');
+
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.className = "nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom";
+      });
+      btn.className = "nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-muSlate transition-all-custom";
+    }
+
+    function toggleNotifications() {
+      document.getElementById('notif-dropdown').classList.toggle('hidden-panel');
+    }
+
+    function selectPayMethod(method) {
+      const mobile = document.getElementById('pay-mobile-label');
+      const online = document.getElementById('pay-online-label');
+      const active = "border-2 border-muSlate rounded-xl p-3 flex items-center justify-center cursor-pointer text-sm font-semibold text-muSlate";
+      const inactive = "border border-gray-200 rounded-xl p-3 flex items-center justify-center cursor-pointer text-sm font-semibold text-gray-600";
+      mobile.className = method === 'mobile' ? active : inactive;
+      online.className = method === 'online' ? active : inactive;
+    }
+  </script>
+</body>
+</html>
