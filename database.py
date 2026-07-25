@@ -1,12 +1,13 @@
 import mysql.connector
 from config import Config
+import os
 
 def get_db():
     return mysql.connector.connect(
-        host     = Config.DB_HOST,
-        user     = Config.DB_USER,
-        password = Config.DB_PASSWORD,
-        database = Config.DB_NAME
+        host=os.environ.get('DB_HOST', Config.DB_HOST),
+        user=os.environ.get('DB_USER', Config.DB_USER),
+        password=os.environ.get('DB_PASSWORD', Config.DB_PASSWORD),
+        database=os.environ.get('DB_NAME', Config.DB_NAME)
     )
 get_db_connection = get_db
 def init_db(app=None):
