@@ -58,9 +58,9 @@
         <button onclick="showTab('courses', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
           Courses &amp; Credits
         </button>
-        <button onclick="showTab('registration', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
+        <a href="{{ url_for('student.register') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
           Semester Registration
-        </button>
+        </a>
         <button onclick="showTab('payments', this)" class="nav-btn w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all-custom">
           Fees &amp; Payments
         </button>
@@ -84,8 +84,8 @@
 
       <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
         <div>
-          <h1 class="text-lg font-bold text-gray-800">Welcome back, {{ student.name }}</h1>
-          <p class="text-xs text-gray-500">{{ student.student_id }}</p>
+          <h1 class="text-lg font-bold text-gray-800">Welcome back, {{ student.name if student and student.name else "Student" }}</h1>
+          <p class="text-xs text-gray-500">{{ student.student_id if student and student.student_id else "" }}</p>
         </div>
 
         <div class="flex items-center gap-4">
@@ -127,15 +127,18 @@
           <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Current CGPA</p>
-              <p class="text-3xl font-extrabold text-muSlate mt-2">{{ cgpa }}</p>
+              <p class="text-3xl font-extrabold text-muSlate mt-2">{{ cgpa if cgpa is defined else '0.00' }}</p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Credits Completed</p>
-              <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ credits_completed }} <span class="text-base font-medium text-gray-400">/ {{ total_required }}</span></p>
+              <p class="text-3xl font-extrabold text-gray-800 mt-2">
+                {{ credits_completed if credits_completed is defined else 0 }} 
+                <span class="text-base font-medium text-gray-400">/ {{ total_required if total_required is defined else 0 }}</span>
+              </p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Credits Remaining</p>
-              <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ credits_remaining }}</p>
+              <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ credits_remaining if credits_remaining is defined else 0 }}</p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Next Payment Due</p>
@@ -148,16 +151,18 @@
           </div>
 
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            {% set progress_pct = ((credits_completed / total_required) * 100) if total_required and total_required > 0 else 0 %}
+            {% set total_req = total_required if total_required is defined and total_required else 1 %}
+            {% set completed = credits_completed if credits_completed is defined and credits_completed else 0 %}
+            {% set progress_pct = ((completed / total_req) * 100) %}
             <div class="flex items-center justify-between mb-2">
               <p class="text-sm font-bold text-gray-700">Degree Progress</p>
               <p class="text-xs font-semibold text-gray-400">
-                {{ credits_completed }} / {{ total_required }} credits ({{ progress_pct | round(0) | int }}%)
+                {{ completed }} / {{ total_req }} credits ({{ progress_pct | round(0) | int }}%)
               </p>
             </div>
             <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
               <div class="h-full bg-muSlate rounded-full transition-all duration-500"
-                   style="width: {{ progress_pct }}%"></div>
+                   style="width: {{ progress_pct if progress_pct <= 100 else 100 }}%"></div>
             </div>
           </div>
         </section>
@@ -176,34 +181,43 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-50">
-                {% for c in curriculum %}
-                <tr>
-                  <td class="py-3 pr-4 font-semibold text-gray-700">{{ c.course_code }}</td>
-                  <td class="py-3 pr-4 text-gray-600">{{ c.course_name }}</td>
-                  <td class="py-3 pr-4 text-gray-500">{{ c.credits }}</td>
-                  <td class="py-3">
-                    {% if c.credit_completed %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen">Completed</span>
-                    {% elif c.is_supplementary %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-muRed">Supplementary</span>
-                    {% elif c.submission_status in ('submitted_by_faculty', 'approved_by_admin') %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">Result Pending</span>
-                    {% else %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-muAmber">Remaining</span>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
+                {% if curriculum %}
+                  {% for c in curriculum %}
+                  <tr>
+                    <td class="py-3 pr-4 font-semibold text-gray-700">{{ c.course_code }}</td>
+                    <td class="py-3 pr-4 text-gray-600">{{ c.course_name }}</td>
+                    <td class="py-3 pr-4 text-gray-500">{{ c.credits }}</td>
+                    <td class="py-3">
+                      {% if c.credit_completed %}
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen">Completed</span>
+                      {% elif c.is_supplementary %}
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-muRed">Supplementary</span>
+                      {% elif c.submission_status in ('submitted_by_faculty', 'approved_by_admin') %}
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">Result Pending</span>
+                      {% else %}
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-muAmber">Remaining</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr><td colspan="4" class="py-6 text-center text-gray-400">No curriculum information available.</td></tr>
+                {% endif %}
               </tbody>
             </table>
           </div>
         </section>
 
-        <!-- ===================== SEMESTER REGISTRATION ===================== -->
+        <!-- ===================== SEMESTER REGISTRATION (READ-ONLY SUMMARY — actual registration happens on the dedicated page) ===================== -->
         <section id="tab-registration" class="tab-panel hidden-panel space-y-4">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 class="text-lg font-bold text-gray-800 mb-1">Current Semester Registration</h2>
-            <p class="text-xs text-gray-500 mb-5">{{ current_semester.name if current_semester else "No active semester" }}</p>
+            <div class="flex items-center justify-between mb-1">
+              <h2 class="text-lg font-bold text-gray-800">Current Semester Registration</h2>
+              <a href="{{ url_for('student.register') }}" class="px-4 py-2 rounded-lg text-xs font-bold text-white bg-muSlate hover:bg-muSlateDark">
+                Register for Courses
+              </a>
+            </div>
+            <p class="text-xs text-gray-500 mb-5">{{ current_semester.name if current_semester and current_semester.name else "No active semester" }}</p>
             <table class="w-full text-sm">
               <thead>
                 <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
@@ -214,16 +228,18 @@
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-50">
-                {% for rc in registered_courses %}
-                <tr>
-                  <td class="py-3 pr-4 font-semibold text-gray-700">{{ rc.course_code }} - {{ rc.course_name }}</td>
-                  <td class="py-3 pr-4 text-gray-600">{{ rc.faculty_name or "TBA" }}</td>
-                  <td class="py-3 pr-4 text-gray-500">{{ rc.class_time or "TBA" }}</td>
-                  <td class="py-3 text-gray-500">{{ rc.room or "TBA" }}</td>
-                </tr>
+                {% if registered_courses %}
+                  {% for rc in registered_courses %}
+                  <tr>
+                    <td class="py-3 pr-4 font-semibold text-gray-700">{{ rc.course_code }} - {{ rc.course_name }}</td>
+                    <td class="py-3 pr-4 text-gray-600">{{ rc.faculty_name or "TBA" }}</td>
+                    <td class="py-3 pr-4 text-gray-500">{{ rc.class_time or "TBA" }}</td>
+                    <td class="py-3 text-gray-500">{{ rc.room or "TBA" }}</td>
+                  </tr>
+                  {% endfor %}
                 {% else %}
-                <tr><td colspan="4" class="py-6 text-center text-gray-400">No courses registered this semester.</td></tr>
-                {% endfor %}
+                  <tr><td colspan="4" class="py-6 text-center text-gray-400">No courses registered this semester.</td></tr>
+                {% endif %}
               </tbody>
             </table>
           </div>
@@ -235,7 +251,7 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 class="text-lg font-bold text-gray-800 mb-1">Pay Semester Fee</h2>
               {% if payment_due %}
-                <p class="text-xs text-gray-500 mb-5">{{ current_semester.name }} &middot; Amount due: <span class="font-bold text-muRed">৳{{ payment_due }}</span></p>
+                <p class="text-xs text-gray-500 mb-5">{{ current_semester.name if current_semester else 'Current' }} &middot; Amount due: <span class="font-bold text-muRed">৳{{ payment_due }}</span></p>
 
                 <form action="{{ url_for('student.pay') }}" method="POST" class="space-y-4">
                   <div>
@@ -271,25 +287,27 @@
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 class="text-lg font-bold text-gray-800 mb-5">Payment History</h2>
               <div class="space-y-3">
-                {% for p in payment_history %}
-                <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
-                  <div>
-                    <p class="text-sm font-semibold text-gray-700">{{ p.semester_name }} Semester Fee</p>
-                    <p class="text-xs text-gray-500">
-                      {{ p.method.replace('_', ' ').title() }} &middot; {{ p.submitted_at.strftime('%b %d, %Y') if p.submitted_at else 'Recent' }}
-                    </p>
+                {% if payment_history %}
+                  {% for p in payment_history %}
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+                    <div>
+                      <p class="text-sm font-semibold text-gray-700">{{ p.semester_name if p.semester_name else 'Semester' }} Fee</p>
+                      <p class="text-xs text-gray-500">
+                        {{ (p.method|string).replace('_', ' ').title() if p.method else 'Payment' }} &middot; {{ p.submitted_at.strftime('%b %d, %Y') if p.submitted_at and p.submitted_at.strftime else 'Recent' }}
+                      </p>
+                    </div>
+                    {% if p.status == 'verified' %}
+                      <span class="text-xs font-bold text-muGreen">Verified &middot; #{{ p.receipt_no }}</span>
+                    {% elif p.status == 'rejected' %}
+                      <span class="text-xs font-bold text-muRed">Rejected</span>
+                    {% else %}
+                      <span class="text-xs font-bold text-muAmber">Pending Admin Review</span>
+                    {% endif %}
                   </div>
-                  {% if p.status == 'verified' %}
-                    <span class="text-xs font-bold text-muGreen">Verified &middot; #{{ p.receipt_no }}</span>
-                  {% elif p.status == 'rejected' %}
-                    <span class="text-xs font-bold text-muRed">Rejected</span>
-                  {% else %}
-                    <span class="text-xs font-bold text-muAmber">Pending Admin Review</span>
-                  {% endif %}
-                </div>
+                  {% endfor %}
                 {% else %}
-                <p class="text-sm text-gray-400">No payment history yet.</p>
-                {% endfor %}
+                  <p class="text-sm text-gray-400">No payment history yet.</p>
+                {% endif %}
               </div>
             </div>
           </div>
@@ -302,15 +320,15 @@
             <div class="grid grid-cols-2 gap-4 mb-6">
               <div>
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Full Name</label>
-                <input type="text" value="{{ student.name }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
+                <input type="text" value="{{ student.name if student and student.name else '' }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
               </div>
               <div>
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Student ID</label>
-                <input type="text" value="{{ student.student_id }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
+                <input type="text" value="{{ student.student_id if student and student.student_id else '' }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
               </div>
               <div class="col-span-2">
                 <label class="block text-xs font-semibold text-gray-600 mb-1">Email Address</label>
-                <input type="email" value="{{ student.email }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
+                <input type="email" value="{{ student.email if student and student.email else '' }}" class="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-gray-50" readonly>
               </div>
             </div>
 
@@ -321,13 +339,13 @@
                   <p class="text-xs text-gray-500 mt-1 max-w-md">When locked, only you, faculty, and admin can view your result and profile — other students cannot see it.</p>
                 </div>
                 <form action="{{ url_for('student.toggle_privacy') }}" method="POST">
-                  <button type="submit" class="relative w-12 h-7 rounded-full {{ 'bg-muSlate' if student.profile_locked else 'bg-gray-200' }} transition-all-custom shrink-0">
-                    <span class="absolute top-1 {{ 'left-6' if student.profile_locked else 'left-1' }} w-5 h-5 bg-white rounded-full shadow transition-all-custom"></span>
+                  <button type="submit" class="relative w-12 h-7 rounded-full {{ 'bg-muSlate' if student and student.profile_locked else 'bg-gray-200' }} transition-all-custom shrink-0">
+                    <span class="absolute top-1 {{ 'left-6' if student and student.profile_locked else 'left-1' }} w-5 h-5 bg-white rounded-full shadow transition-all-custom"></span>
                   </button>
                 </form>
               </div>
-              <p class="text-xs font-semibold {{ 'text-muSlate' if student.profile_locked else 'text-gray-400' }} mt-3">
-                {% if student.profile_locked %}
+              <p class="text-xs font-semibold {{ 'text-muSlate' if student and student.profile_locked else 'text-gray-400' }} mt-3">
+                {% if student and student.profile_locked %}
                   Profile is locked — only you, faculty, and admin can view it.
                 {% else %}
                   Profile is currently visible to other students.

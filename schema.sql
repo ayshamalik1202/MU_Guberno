@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS students (
     password VARCHAR(255) NOT NULL,
     gpa DECIMAL(3,2) DEFAULT NULL,
     profile_locked BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -21,14 +22,21 @@ CREATE TABLE IF NOT EXISTS staff (
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     role ENUM('admin', 'faculty') NOT NULL,
+    approval_status ENUM('pending', 'approved', 'rejected') DEFAULT 'approved',
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Courses Table (Master course list)
+-- 3. Courses Table
 CREATE TABLE IF NOT EXISTS courses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     course_code VARCHAR(20) UNIQUE NOT NULL,
     course_name VARCHAR(100) NOT NULL
+);
+CREATE TABLE IF NOT EXISTS departments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    short_form VARCHAR(20) NOT NULL UNIQUE
 );
 
 -- 4. Semesters Table
@@ -59,18 +67,32 @@ CREATE TABLE IF NOT EXISTS course_offerings (
     faculty_id INT,
     class_time VARCHAR(100),
     room VARCHAR(50),
+    submission_status ENUM(
+        'draft', 
+        'submitted_by_faculty', 
+        'approved_by_admin', 
+        'revision_requested', 
+        'published'
+    ) DEFAULT 'draft',
+    submitted_at DATETIME DEFAULT NULL,
+    approved_at DATETIME DEFAULT NULL,
+    approved_by_admin_id INT DEFAULT NULL,
     FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
     FOREIGN KEY (semester_id) REFERENCES semesters(id) ON DELETE CASCADE,
-    FOREIGN KEY (faculty_id) REFERENCES staff(id) ON DELETE SET NULL
+    FOREIGN KEY (faculty_id) REFERENCES staff(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_by_admin_id) REFERENCES staff(id) ON DELETE SET NULL
 );
 
--- 7. Enrollments Table (Result & Grade Workflow)
-CREATE TABLE enrollments (
+-- 7. Enrollments Table (Includes admin_remarks)
+CREATE TABLE IF NOT EXISTS enrollments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     student_id INT NOT NULL,
     course_offering_id INT NOT NULL,
-    marks_obtained DECIMAL(5,2) DEFAULT NULL,
+    continuous_marks DECIMAL(5,2) DEFAULT 0.00,
+    final_exam_marks DECIMAL(5,2) DEFAULT 0.00,
+    marks_obtained DECIMAL(5,2) DEFAULT 0.00,
     grade VARCHAR(5) DEFAULT NULL,
+    grade_point DECIMAL(3,2) DEFAULT 0.00,
     exam_attendance ENUM('present', 'absent') DEFAULT 'present',
     submission_status ENUM(
         'not_submitted',
@@ -78,8 +100,10 @@ CREATE TABLE enrollments (
         'approved_by_admin',
         'published'
     ) DEFAULT 'not_submitted',
+    admin_remarks TEXT DEFAULT NULL,
     is_supplementary BOOLEAN DEFAULT FALSE,
     credit_completed BOOLEAN DEFAULT FALSE,
+    is_locked BOOLEAN DEFAULT FALSE,
     submitted_by INT DEFAULT NULL,
     submitted_at DATETIME DEFAULT NULL,
     approved_by INT DEFAULT NULL,
@@ -134,6 +158,39 @@ CREATE TABLE IF NOT EXISTS complaints (
     FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
--- Seed Data
-INSERT IGNORE INTO semesters (id, name, is_current, fee_amount, result_published)
-VALUES (1, 'Summer 2026', TRUE, 28500.00, FALSE);
+-- 11. Result Complaints Table (For direct grade reviews by faculty)
+CREATE TABLE IF NOT EXISTS result_complaints (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    enrollment_id INT NOT NULL,
+    reason TEXT NOT NULL,
+    status ENUM('pending', 'sent_to_faculty', 'resolved') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE
+);
+
+-- 12. Grade Audit Logs
+CREATE TABLE IF NOT EXISTS grade_audit_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    enrollment_id INT NOT NULL,
+    admin_id INT NOT NULL,
+    old_continuous DECIMAL(5,2),
+    new_continuous DECIMAL(5,2),
+    old_final DECIMAL(5,2),
+    new_final DECIMAL(5,2),
+    reason TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE,
+    FOREIGN KEY (admin_id) REFERENCES staff(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS class_times (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    day_of_week ENUM('Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday') NOT NULL,
+    time_slot VARCHAR(30) NOT NULL,
+    UNIQUE KEY unique_day_slot (day_of_week, time_slot)
+);
+
+CREATE TABLE IF NOT EXISTS rooms (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    room_name VARCHAR(20) NOT NULL UNIQUE
+);
+UPDATE staff SET approval_status = 'approved' WHERE approval_status IS NULL OR approval_status = 'pending';

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrutinize Results | MU Guberno</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            muGray: '#f4f6fa',
+            muSlate: '#3D5A80',
+            muSlateDark: '#32496A',
+            muRed: '#C8102E',
+            muGreen: '#1F8A50',
+            muAmber: '#B8860B',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-muGray min-h-screen font-sans text-gray-800">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-xs font-semibold shadow-lg {% if category == 'success' %} bg-green-50 text-green-700 border border-green-200 {% else %} bg-red-50 text-red-700 border border-red-200 {% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="flex min-h-screen">
+
+    {% include 'admin/_sidebar.html' ignore missing %}
+
+    <!-- ===================== MAIN ===================== -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        <div>
+          <a href="{{ url_for('admin.dashboard') }}" class="text-xs font-bold text-muSlate hover:underline">&larr; Back to Dashboard</a>
+          <h1 class="text-lg font-bold text-gray-800 mt-1">
+            Scrutinizing: {{ offering.course_code if offering else 'Course' }} — {{ offering.course_name if offering else '' }}
+          </h1>
+          <p class="text-xs text-gray-500">
+            Faculty: <span class="font-semibold text-gray-700">{{ offering.faculty_name if offering else 'TBA' }}</span> &middot; 
+            Semester: <span class="font-semibold text-gray-700">{{ offering.semester_name if offering else 'N/A' }}</span>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- Request Revision Form -->
+          <form action="{{ url_for('admin.reject_submission', offering_id=offering.id if offering else 0) }}" method="POST">
+            <button type="submit" onclick="return confirm('Are you sure you want to send this back to faculty for revision?');" 
+                    class="px-4 py-2 bg-red-50 text-muRed border border-red-200 rounded-xl text-xs font-bold hover:bg-red-100 transition-colors">
+              Request Revision
+            </button>
+          </form>
+
+          <!-- Approve & Lock Form -->
+          <form action="{{ url_for('admin.approve_submission', offering_id=offering.id if offering else 0) }}" method="POST">
+            <button type="submit" onclick="return confirm('Approve and lock these results for final publishing?');" 
+                    class="px-4 py-2 bg-muGreen text-white rounded-xl text-xs font-bold hover:bg-green-700 transition-colors shadow-sm">
+              Approve &amp; Lock Results
+            </button>
+          </form>
+        </div>
+      </header>
+
+      <main class="p-8 space-y-6">
+
+        <!-- ===================== SUMMARY STATS ===================== -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Submissions</p>
+            <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ grades|length if grades else 0 }}</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Passed</p>
+            <p class="text-3xl font-extrabold text-muGreen mt-2">
+              {{ pass_count if pass_count is defined else 0 }}
+            </p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Failed / Retake</p>
+            <p class="text-3xl font-extrabold text-muRed mt-2">
+              {{ fail_count if fail_count is defined else 0 }}
+            </p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Batch Average</p>
+            <p class="text-3xl font-extrabold text-muSlate mt-2">{{ average_marks if average_marks is defined else '0.0' }}</p>
+          </div>
+        </div>
+
+        <!-- ===================== SCRUTINY MARKS TABLE ===================== -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 class="text-base font-bold text-gray-800 mb-4">Detailed Student Marks Review</h2>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <th class="pb-3 pr-4">Student ID</th>
+                  <th class="pb-3 pr-4">Student Name</th>
+                  <th class="pb-3 pr-4">Continuous (40)</th>
+                  <th class="pb-3 pr-4">Final Exam (60)</th>
+                  <th class="pb-3 pr-4">Total (100)</th>
+                  <th class="pb-3 pr-4">Grade Point</th>
+                  <th class="pb-3 pr-4">Letter Grade</th>
+                  <th class="pb-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-50">
+                {% if grades %}
+                  {% for g in grades %}
+                  <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="py-3 pr-4 font-semibold text-gray-700">{{ g.student_id }}</td>
+                    <td class="py-3 pr-4 text-gray-800 font-medium">{{ g.student_name }}</td>
+                    <td class="py-3 pr-4 text-gray-600">{{ g.continuous_marks }}</td>
+                    <td class="py-3 pr-4 text-gray-600">{{ g.final_exam_marks }}</td>
+                    <td class="py-3 pr-4 font-bold text-gray-800">{{ g.total_marks }}</td>
+                    <td class="py-3 pr-4 font-semibold text-muSlate">{{ g.grade_point }}</td>
+                    <td class="py-3 pr-4">
+                      <span class="px-2.5 py-1 rounded-full text-xs font-bold 
+                        {% if g.letter_grade == 'F' %} bg-red-50 text-muRed 
+                        {% elif g.letter_grade in ['A+', 'A'] %} bg-green-50 text-muGreen 
+                        {% else %} bg-gray-100 text-gray-700 {% endif %}">
+                        {{ g.letter_grade }}
+                      </span>
+                    </td>
+                    <td class="py-3 text-right">
+                      <!-- Individual Mark Override Modal Trigger / Action -->
+                      <button onclick="openOverrideModal('{{ g.id }}', '{{ g.student_name }}', '{{ g.continuous_marks }}', '{{ g.final_exam_marks }}')" 
+                              class="text-xs font-bold text-muSlate hover:underline">
+                        Edit / Override
+                      </button>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="8" class="py-8 text-center text-gray-400">No student grades found for scrutinization.</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ===================== OVERRIDE MODAL ===================== -->
+  <div id="override-modal" class="fixed inset-0 bg-black/40 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold text-gray-800">Override Marks</h3>
+        <button onclick="closeOverrideModal()" class="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+      </div>
+
+      <form action="{{ url_for('admin.override_marks') }}" method="POST" class="space-y-4">
+        <input type="hidden" name="grade_id" id="modal-grade-id">
+        <input type="hidden" name="offering_id" value="{{ offering.id if offering else 0 }}">
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase">Student</label>
+          <p id="modal-student-name" class="text-sm font-bold text-gray-800 mt-0.5"></p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Continuous (40)</label>
+            <input type="number" step="0.5" min="0" max="40" name="continuous_marks" id="modal-continuous" required 
+                   class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-muSlate outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Final Exam (60)</label>
+            <input type="number" step="0.5" min="0" max="60" name="final_exam_marks" id="modal-final" required 
+                   class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-muSlate outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1">Reason for Adjustment</label>
+          <textarea name="reason" required placeholder="Mandatory note for audit trail..." 
+                    class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-muSlate outline-none h-20"></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-2">
+          <button type="button" onclick="closeOverrideModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-xs font-bold text-white bg-muSlate hover:bg-muSlateDark">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    function openOverrideModal(gradeId, name, continuous, finalExam) {
+      document.getElementById('modal-grade-id').value = gradeId;
+      document.getElementById('modal-student-name').innerText = name;
+      document.getElementById('modal-continuous').value = continuous;
+      document.getElementById('modal-final').value = finalExam;
+      document.getElementById('override-modal').classList.remove('hidden');
+    }
+
+    function closeOverrideModal() {
+      document.getElementById('override-modal').classList.add('hidden');
+    }
+  </script>
+</body>
+</html>

@@ -7,18 +7,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            muGray: '#f4f6fa',
-            muSlate: '#3D5A80',
-            muSlateDark: '#32496A',
-            muRed: '#C8102E',
-            muGreen: '#1F8A50',
-            muAmber: '#B8860B',
-          }
-        }
-      }
+      theme: { extend: { colors: {
+        muGray: '#f4f6fa', muSlate: '#3D5A80', muSlateDark: '#32496A',
+        muRed: '#C8102E', muGreen: '#1F8A50',
+      } } }
     }
   </script>
 </head>
@@ -38,78 +30,64 @@
 
   <div class="flex min-h-screen">
 
-    <!-- ===================== SIDEBAR ===================== -->
+    <!-- Sidebar -->
     <aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
       <div class="p-6 border-b border-gray-100">
         <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
       </div>
-
       <nav class="flex-1 p-4 space-y-1">
         <a href="{{ url_for('faculty.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-muSlate">My Courses</a>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Routine <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Profile <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
+        <a href="{{ url_for('faculty.routine') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Routine</a>
+        <a href="{{ url_for('faculty.profile') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Profile</a>
       </nav>
-
       <div class="p-4 border-t border-gray-100">
         <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50">Log Out</a>
       </div>
     </aside>
 
-    <!-- ===================== MAIN ===================== -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <!-- Main -->
+    <div class="flex-1 p-8">
+      <div class="mb-6">
+        <h1 class="text-lg font-bold text-gray-800">Welcome back, {{ faculty.name }}</h1>
+        <p class="text-sm text-gray-500">{{ faculty.staff_id }}</p>
+      </div>
 
-      <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
-        <div>
-          <h1 class="text-lg font-bold text-gray-800">Welcome back, {{ faculty.name if faculty else "Faculty" }}</h1>
-          <p class="text-xs text-gray-500">{{ faculty.staff_id if faculty else "" }}</p>
-        </div>
-        <div class="w-9 h-9 rounded-full bg-muSlate text-white flex items-center justify-center text-sm font-bold">
-          {{ faculty.name[0] if faculty and faculty.name else "F" }}
-        </div>
-      </header>
+      <h2 class="text-base font-bold text-gray-800 mb-4">Assigned Courses</h2>
 
-      <main class="p-8 space-y-4">
-        <h2 class="text-lg font-bold text-gray-800">Assigned Courses</h2>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {% for o in offerings %}
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-start justify-between gap-3 mb-1">
-              <div>
-                <p class="text-sm font-bold text-gray-800">{{ o.course_code }} &middot; {{ o.course_name }}</p>
-                <p class="text-xs text-gray-500 mt-0.5">{{ o.semester_name }}{% if o.is_current %} <span class="text-muGreen font-semibold">&middot; Current</span>{% endif %}</p>
-              </div>
-              {% if o.ungraded_count == 0 and o.total_students > 0 %}
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen shrink-0">All Graded</span>
-              {% elif o.total_students == 0 %}
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500 shrink-0">No Students</span>
-              {% else %}
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-muAmber shrink-0">{{ o.ungraded_count }} Pending</span>
-              {% endif %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for o in offerings %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <p class="text-xs font-bold text-muSlate uppercase tracking-wider">{{ o.course_code }}</p>
+              <h3 class="text-sm font-bold text-gray-800">{{ o.course_name }}</h3>
             </div>
-            <p class="text-xs text-gray-500 mb-4">{{ o.class_time or "TBA" }} &middot; {{ o.room or "TBA" }}</p>
-
-            <div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-4">
-              {% set pct = ((o.graded_count / o.total_students) * 100) if o.total_students and o.total_students > 0 else 0 %}
-              <div class="h-full bg-muSlate rounded-full" style="width: {{ pct }}%"></div>
-            </div>
-
-            <div class="flex items-center justify-between">
-              <p class="text-xs text-gray-400">{{ o.graded_count }} / {{ o.total_students }} graded</p>
-              <a href="{{ url_for('faculty.grades', offering_id=o.offering_id) }}" class="text-xs font-bold text-muSlate hover:underline">Enter Grades &rarr;</a>
-            </div>
+            {% if o.is_current %}
+              <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen shrink-0">Current</span>
+            {% endif %}
           </div>
-          {% else %}
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:col-span-2 text-center text-gray-400 text-sm">
-            No course offerings are currently assigned to you.
+
+          <p class="text-xs text-gray-500 mb-1">{{ o.semester_name }}</p>
+          <p class="text-xs text-gray-500 mb-4">
+            {{ o.class_time or "Time TBA" }} &middot; {{ o.room or "Room TBA" }}
+          </p>
+
+          <div class="flex items-center justify-between text-xs text-gray-500 mb-4">
+            <span>{{ o.total_students or 0 }} students</span>
+            <span>{{ o.graded_count or 0 }}/{{ o.total_students or 0 }} submitted</span>
           </div>
-          {% endfor %}
+
+          <a href="{{ url_for('faculty.grades', offering_id=o.offering_id) }}"
+             class="block text-center w-full px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-muSlate hover:bg-muSlateDark">
+            Submit Results
+          </a>
         </div>
-      </main>
+        {% else %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center text-gray-400 md:col-span-2">
+          No course offerings are currently assigned to you.
+        </div>
+        {% endfor %}
+      </div>
     </div>
   </div>
 </body>

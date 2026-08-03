@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Class Routine | MU Guberno</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            muGray: '#f4f6fa',
+            muSlate: '#3D5A80',
+            muSlateDark: '#32496A',
+            muRed: '#C8102E',
+            muGreen: '#1F8A50',
+            muAmber: '#B8860B',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-muGray min-h-screen font-sans text-gray-800">
+
+  <div class="flex min-h-screen">
+    <!-- ===================== SIDEBAR ===================== -->
+    <aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
+      <div class="p-6 border-b border-gray-100">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
+      </div>
+      <nav class="flex-1 p-4 space-y-1">
+        <a href="{{ url_for('faculty.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">My Courses</a>
+        <a href="{{ url_for('faculty.routine') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-muSlate">Routine</a>
+        <a href="{{ url_for('faculty.profile') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Profile</a>
+      </nav>
+      <div class="p-4 border-t border-gray-100">
+        <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50">Log Out</a>
+      </div>
+    </aside>
+
+    <!-- ===================== MAIN ===================== -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        <div>
+          <h1 class="text-lg font-bold text-gray-800">Class Routine</h1>
+          <p class="text-xs text-gray-500">{{ faculty.name if faculty else "" }}</p>
+        </div>
+        <div class="w-9 h-9 rounded-full bg-muSlate text-white flex items-center justify-center text-sm font-bold">
+          {{ faculty.name[0] if faculty and faculty.name else "F" }}
+        </div>
+      </header>
+
+      <main class="p-8 space-y-4">
+        <h2 class="text-lg font-bold text-gray-800">Current Semester Schedule</h2>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-5xl">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                <th class="py-2 pr-4">Course</th>
+                <th class="py-2 pr-4">Semester</th>
+                <th class="py-2 pr-4">Time</th>
+                <th class="py-2">Room</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              {% for r in routines %}
+              <tr>
+                <td class="py-3 pr-4 font-semibold text-gray-700">{{ r.course_code }} &middot; {{ r.course_name }}</td>
+                <td class="py-3 pr-4 text-gray-500">{{ r.semester_name }}</td>
+                <td class="py-3 pr-4 text-gray-500">{{ r.class_time or "TBA" }}</td>
+                <td class="py-3 text-gray-500">{{ r.room or "TBA" }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="py-8 text-center text-gray-400">No active routines scheduled for this semester.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

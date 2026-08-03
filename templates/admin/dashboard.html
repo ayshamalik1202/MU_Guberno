@@ -38,37 +38,7 @@
 
   <div class="flex min-h-screen">
 
-    <!-- ===================== SIDEBAR ===================== -->
-    <aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
-      <div class="p-6 border-b border-gray-100">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
-      </div>
-
-      <nav class="flex-1 p-4 space-y-1">
-        <a href="{{ url_for('admin.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-muSlate">Dashboard</a>
-        <a href="{{ url_for('admin.pending_results') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Result Review</a>
-        <a href="{{ url_for('admin.approved_results') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Publish Results</a>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Faculty Approvals <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Payments <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Complaints <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Routine &amp; Offerings <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
-        <span class="flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-300 cursor-not-allowed">
-          Accounts <span class="text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded">Soon</span>
-        </span>
-      </nav>
-
-      <div class="p-4 border-t border-gray-100">
-        <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50">Log Out</a>
-      </div>
-    </aside>
+    {% include 'admin/_sidebar.html' %}
 
     <!-- ===================== MAIN ===================== -->
     <div class="flex-1 flex flex-col min-w-0">
@@ -86,44 +56,114 @@
       <main class="p-8 space-y-6">
 
         <!-- ===================== OVERVIEW CARDS ===================== -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <a href="{{ url_for('admin.pending_results') }}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:border-muSlate transition-all">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pending Review</p>
-            <p class="text-3xl font-extrabold {{ 'text-muAmber' if pending_review_count else 'text-gray-800' }} mt-2">{{ pending_review_count }}</p>
-            <p class="text-xs text-gray-400 mt-1">Submitted by faculty</p>
-          </a>
-          <a href="{{ url_for('admin.approved_results') }}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:border-muSlate transition-all">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Ready to Publish</p>
-            <p class="text-3xl font-extrabold {{ 'text-muGreen' if ready_to_publish_count else 'text-gray-800' }} mt-2">{{ ready_to_publish_count }}</p>
-            <p class="text-xs text-gray-400 mt-1">Approved, awaiting result day</p>
-          </a>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Students</p>
-            <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ total_students }}</p>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pending Submissions</p>
+            <p class="text-3xl font-extrabold {{ 'text-muAmber' if pending_submissions|length > 0 else 'text-gray-800' }} mt-2">
+              {{ pending_submissions|length }}
+            </p>
+            <p class="text-xs text-gray-400 mt-1">Course offerings awaiting scrutiny</p>
           </div>
+
           <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Faculty</p>
-            <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ total_faculty }}</p>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pending Complaints</p>
+            <p class="text-3xl font-extrabold {{ 'text-muRed' if complaints|length > 0 else 'text-gray-800' }} mt-2">
+              {{ complaints|length }}
+            </p>
+            <p class="text-xs text-gray-400 mt-1">Student complaints needing review</p>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Semesters</p>
+            <p class="text-3xl font-extrabold text-gray-800 mt-2">{{ semesters|length }}</p>
+            <p class="text-xs text-gray-400 mt-1">Managed in the system</p>
           </div>
         </div>
 
-        <!-- ===================== RECENT SUBMISSIONS ===================== -->
+        <!-- ===================== PENDING SUBMISSIONS FOR SCRUTINY ===================== -->
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <div class="flex items-center justify-between mb-5">
-            <h2 class="text-lg font-bold text-gray-800">Recently Submitted Results</h2>
-            <a href="{{ url_for('admin.pending_results') }}" class="text-xs font-bold text-muSlate hover:underline">View all &rarr;</a>
+            <h2 class="text-lg font-bold text-gray-800">Pending Submissions for Scrutiny</h2>
           </div>
-          <div class="space-y-2">
-            {% for r in recent_pending %}
-            <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50">
+          <div class="space-y-3">
+            {% for sub in pending_submissions %}
+            <div class="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
               <div>
-                <p class="text-sm font-semibold text-gray-700">{{ r.student_name }}</p>
-                <p class="text-xs text-gray-500">{{ r.course_code }}</p>
+                <p class="text-sm font-bold text-gray-800">{{ sub.course_code }} - {{ sub.course_name }}</p>
+                <p class="text-xs text-gray-500">Faculty: {{ sub.faculty_name }} | Semester: {{ sub.semester_name }}</p>
+                <span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                  {{ sub.total_submissions }} Student Submissions
+                </span>
               </div>
-              <p class="text-xs text-gray-400">{{ r.submitted_at.strftime('%b %d, %Y %I:%M %p') if r.submitted_at else '' }}</p>
+              <a href="{{ url_for('admin.scrutinize', offering_id=sub.offering_id) }}" 
+                 class="px-4 py-2 text-xs font-bold bg-muSlate text-white rounded-lg hover:bg-muSlateDark transition-colors">
+                Scrutinize &rarr;
+              </a>
             </div>
             {% else %}
-            <p class="text-sm text-gray-400">Nothing awaiting review right now.</p>
+            <p class="text-sm text-gray-400">No submissions awaiting review right now.</p>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- ===================== PUBLISH SEMESTER RESULTS ===================== -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">Publish Semester Results</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for sem in semesters %}
+            <div class="p-4 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between">
+              <div>
+                <p class="text-sm font-bold text-gray-800">{{ sem.name }}</p>
+                <p class="text-xs text-gray-500">
+                  Status: 
+                  {% if sem.result_published %}
+                    <span class="text-muGreen font-semibold">Published</span>
+                  {% else %}
+                    <span class="text-muAmber font-semibold">Unpublished</span>
+                  {% endif %}
+                </p>
+              </div>
+              <form action="{{ url_for('admin.publish_semester', semester_id=sem.id) }}" method="POST">
+                <button type="submit" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-lg transition-colors {% if sem.result_published %} bg-gray-200 text-gray-600 cursor-not-allowed {% else %} bg-muGreen text-white hover:bg-green-700 {% endif %}"
+                        {% if sem.result_published %}disabled{% endif %}>
+                  Publish
+                </button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- ===================== RESULT COMPLAINTS ===================== -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 class="text-lg font-bold text-gray-800 mb-4">Student Result Complaints</h2>
+          <div class="space-y-3">
+            {% for c in complaints %}
+            <div class="p-4 rounded-xl bg-gray-50 border border-gray-100 space-y-3">
+              <div class="flex items-start justify-between">
+                <div>
+                  <p class="text-sm font-bold text-gray-800">{{ c.student_name }} ({{ c.student_code }})</p>
+                  <p class="text-xs text-gray-500">Course: {{ c.course_code }} - {{ c.course_name }} | Faculty: {{ c.faculty_name }}</p>
+                </div>
+                <span class="text-[10px] font-semibold text-gray-400">
+                  {{ c.created_at.strftime('%b %d, %Y') if c.created_at else '' }}
+                </span>
+              </div>
+              <p class="text-xs text-gray-600 bg-white p-2.5 rounded-lg border border-gray-100">
+                <span class="font-bold text-gray-700">Reason:</span> {{ c.reason }}
+              </p>
+              
+              <form action="{{ url_for('admin.knock_faculty', complaint_id=c.complaint_id) }}" method="POST" class="flex gap-2">
+                <input type="text" name="admin_note" placeholder="Note to faculty member..." 
+                       class="flex-1 px-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:border-muSlate">
+                <button type="submit" class="px-3 py-1.5 text-xs font-bold bg-muRed text-white rounded-lg hover:bg-red-700 transition-colors">
+                  Forward to Faculty
+                </button>
+              </form>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400">No active result complaints at this time.</p>
             {% endfor %}
           </div>
         </div>

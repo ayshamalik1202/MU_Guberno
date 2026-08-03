@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Publish Results | MU Guberno Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: {
+      muGray: '#f4f6fa', muSlate: '#3D5A80', muSlateDark: '#32496A',
+      muRed: '#C8102E', muGreen: '#1F8A50', muAmber: '#B8860B',
+    } } } }
+  </script>
+</head>
+<body class="bg-muGray min-h-screen font-sans text-gray-800">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-xs font-semibold shadow-lg {% if category == 'success' %} bg-green-50 text-green-700 border border-green-200 {% else %} bg-red-50 text-red-700 border border-red-200 {% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="flex min-h-screen">
+    {% include 'admin/_sidebar.html' %}
+
+    <div class="flex-1 p-8 space-y-4">
+
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-5xl">
+        <h1 class="text-lg font-bold text-gray-800 mb-1">Publish Results</h1>
+        <p class="text-xs text-gray-500 mb-5">A semester can only be published once every result in it is approved — no partial publishing.</p>
+
+        <div class="space-y-3">
+          {% for s in semester_summaries %}
+          <div class="p-4 rounded-xl bg-gray-50">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p class="text-sm font-bold text-gray-800">{{ s.semester_name }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  {{ s.ready_count }} ready to publish
+                  {% if s.blocking_count %} &middot; <span class="text-muAmber font-semibold">{{ s.blocking_count }} still pending review</span>{% endif %}
+                </p>
+              </div>
+              <div class="flex items-center gap-2">
+                <a href="{{ url_for('admin.approved_results', semester_id=s.semester_id) }}"
+                   class="px-3 py-1.5 rounded-lg text-xs font-bold text-muSlate border border-muSlate/30 hover:bg-white">
+                  View Details
+                </a>
+                {% if s.result_published %}
+                  <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-green-50 text-muGreen">Published</span>
+                {% elif s.blocking_count > 0 %}
+                  <span class="px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-400 cursor-not-allowed" title="Resolve pending reviews first">
+                    Publish
+                  </span>
+                {% else %}
+                  <form action="{{ url_for('admin.publish_results', semester_id=s.semester_id) }}" method="POST"
+                        onsubmit="return confirm('Publish {{ s.semester_name }} results? This will immediately notify all students.');">
+                    <button type="submit" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-muGreen hover:bg-green-700">
+                      Publish Now
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400 py-6 text-center">No approved results waiting to be published.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if selected_semester_id %}
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-5xl">
+        <h2 class="text-lg font-bold text-gray-800 mb-5">Approved Result Details</h2>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
+              <th class="py-2 pr-4">Student</th>
+              <th class="py-2 pr-4">Course</th>
+              <th class="py-2 pr-4">Marks</th>
+              <th class="py-2 pr-4">Grade</th>
+              <th class="py-2 pr-4">Attendance</th>
+              <th class="py-2 pr-4">Credit</th>
+              <th class="py-2">Approved</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for row in detail_rows %}
+            <tr>
+              <td class="py-3 pr-4 font-semibold text-gray-700">{{ row.student_name }}<br><span class="text-xs text-gray-400 font-normal">{{ row.student_code }}</span></td>
+              <td class="py-3 pr-4 text-gray-600">{{ row.course_code }} - {{ row.course_name }}</td>
+              <td class="py-3 pr-4 text-gray-500">{{ row.marks_obtained if row.marks_obtained is not none else "—" }}</td>
+              <td class="py-3 pr-4 font-bold {{ 'text-muRed' if row.grade == 'F' else 'text-muGreen' }}">{{ row.grade }}</td>
+              <td class="py-3 pr-4 text-gray-500">{{ row.exam_attendance.title() }}</td>
+              <td class="py-3 pr-4">
+                {% if row.credit_completed %}
+                  <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-green-50 text-muGreen">Completed</span>
+                {% elif row.is_supplementary %}
+                  <span class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-muRed">Supplementary</span>
+                {% endif %}
+              </td>
+              <td class="py-3 text-gray-400 text-xs">{{ row.approved_at.strftime('%b %d, %Y') if row.approved_at else '' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="py-6 text-center text-gray-400">No approved results in this semester.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</body>
+</html>

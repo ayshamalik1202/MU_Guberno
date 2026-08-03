@@ -3,22 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{ offering.course_code }} Grades | MU Guberno</title>
+  <title>Submit Results | MU Guberno</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            muGray: '#f4f6fa',
-            muSlate: '#3D5A80',
-            muSlateDark: '#32496A',
-            muRed: '#C8102E',
-            muGreen: '#1F8A50',
-            muAmber: '#B8860B',
-          }
-        }
-      }
+      theme: { extend: { colors: {
+        muGray: '#f4f6fa', muSlate: '#3D5A80', muSlateDark: '#32496A',
+        muRed: '#C8102E', muGreen: '#1F8A50',
+      } } }
     }
   </script>
 </head>
@@ -38,99 +30,92 @@
 
   <div class="flex min-h-screen">
 
-    <!-- ===================== SIDEBAR ===================== -->
+    <!-- Sidebar -->
     <aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
       <div class="p-6 border-b border-gray-100">
         <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
       </div>
       <nav class="flex-1 p-4 space-y-1">
         <a href="{{ url_for('faculty.dashboard') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">My Courses</a>
+        <a href="{{ url_for('faculty.routine') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Routine</a>
+        <a href="{{ url_for('faculty.profile') }}" class="block w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50">Profile</a>
       </nav>
       <div class="p-4 border-t border-gray-100">
         <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50">Log Out</a>
       </div>
     </aside>
 
-    <!-- ===================== MAIN ===================== -->
+    <!-- Main -->
     <div class="flex-1 p-8">
-      <a href="{{ url_for('faculty.dashboard') }}" class="text-xs font-semibold text-gray-400 hover:text-muSlate">&larr; Back to My Courses</a>
 
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-4 max-w-5xl">
-        <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
-          <h1 class="text-lg font-bold text-gray-800">{{ offering.course_code }} &middot; {{ offering.course_name }}</h1>
-        </div>
-        <p class="text-xs text-gray-500 mb-6">{{ offering.semester_name }} &middot; {{ offering.class_time or "TBA" }} &middot; {{ offering.room or "TBA" }}</p>
+      <a href="{{ url_for('faculty.dashboard') }}" class="text-xs font-semibold text-muSlate hover:underline">&larr; Back to My Courses</a>
 
-        <form method="POST" action="{{ url_for('faculty.submit_results', offering_id=offering.id) }}">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-4 mb-6">
+        <p class="text-xs font-bold text-muSlate uppercase tracking-wider">{{ offering.course_code }}</p>
+        <h1 class="text-lg font-bold text-gray-800">{{ offering.course_name }}</h1>
+        <p class="text-sm text-gray-500 mt-1">{{ offering.semester_name }}</p>
+      </div>
+
+      <form method="POST" action="{{ url_for('faculty.submit_results', offering_id=offering.id) }}">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <table class="w-full text-sm">
             <thead>
               <tr class="text-left text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                <th class="py-2 pr-4">Student</th>
-                <th class="py-2 pr-4">ID</th>
-                <th class="py-2 pr-4 w-28">Marks</th>
-                <th class="py-2 pr-4 w-36">Attendance</th>
+                <th class="py-2 pr-4">Student ID</th>
+                <th class="py-2 pr-4">Name</th>
+                <th class="py-2 pr-4">Attendance</th>
+                <th class="py-2 pr-4">Marks (0-100)</th>
                 <th class="py-2">Status</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
-              {% for row in roster %}
+              {% for r in roster %}
               <tr>
-                <td class="py-3 pr-4 font-semibold text-gray-700 align-top">
-                  {{ row.student_name }}
-                  {% if row.admin_remarks %}
-                    <p class="text-xs font-normal text-muRed mt-1 max-w-xs">Rejected: {{ row.admin_remarks }}</p>
-                  {% endif %}
-                </td>
-                <td class="py-3 pr-4 text-gray-500 align-top">{{ row.student_code }}</td>
+                <td class="py-3 pr-4 font-semibold text-gray-700">{{ r.student_code }}</td>
+                <td class="py-3 pr-4 text-gray-600">{{ r.student_name }}</td>
 
-                {% if row.submission_status == 'not_submitted' %}
-                  <td class="py-3 pr-4 align-top">
-                    <input type="number" step="0.01" min="0" max="100"
-                           name="marks_{{ row.enrollment_id }}"
-                           value="{{ row.marks_obtained if row.marks_obtained is not none else '' }}"
-                           class="w-24 px-3 py-1.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-muSlate outline-none text-sm">
-                  </td>
-                  <td class="py-3 pr-4 align-top">
-                    <select name="attendance_{{ row.enrollment_id }}"
-                            class="w-full px-3 py-1.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-muSlate outline-none text-sm">
-                      <option value="present" {% if row.exam_attendance == 'present' %}selected{% endif %}>Present</option>
-                      <option value="absent" {% if row.exam_attendance == 'absent' %}selected{% endif %}>Absent</option>
+                {% if r.submission_status == 'not_submitted' %}
+                  <td class="py-3 pr-4">
+                    <select name="attendance_{{ r.enrollment_id }}"
+                            class="px-3 py-1.5 rounded-lg border border-gray-200 text-xs focus:ring-2 focus:ring-muSlate outline-none">
+                      <option value="present">Present</option>
+                      <option value="absent">Absent</option>
                     </select>
                   </td>
-                  <td class="py-3 align-top">
-                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-muAmber">Not Submitted</span>
+                  <td class="py-3 pr-4">
+                    <input type="number" name="marks_{{ r.enrollment_id }}" min="0" max="100" step="0.01"
+                           value="{{ r.marks_obtained if r.marks_obtained is not none else '' }}"
+                           class="w-24 px-3 py-1.5 rounded-lg border border-gray-200 text-xs focus:ring-2 focus:ring-muSlate outline-none">
+                  </td>
+                  <td class="py-3">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">Not Submitted</span>
+                    {% if r.admin_remarks %}
+                      <p class="text-xs text-muRed mt-1">{{ r.admin_remarks }}</p>
+                    {% endif %}
                   </td>
                 {% else %}
-                  <td class="py-3 pr-4 text-gray-500 align-top">{{ row.marks_obtained if row.marks_obtained is not none else "—" }}</td>
-                  <td class="py-3 pr-4 text-gray-500 align-top">{{ row.exam_attendance.title() }}</td>
-                  <td class="py-3 align-top">
-                    {% if row.submission_status == 'submitted_by_faculty' %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">Awaiting Admin Review</span>
-                    {% elif row.submission_status == 'approved_by_admin' %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-muSlate">Approved &middot; {{ row.grade }}</span>
-                    {% elif row.submission_status == 'published' %}
-                      <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen">Published &middot; {{ row.grade }}</span>
-                    {% endif %}
+                  <td class="py-3 pr-4 text-gray-500">{{ r.exam_attendance | capitalize }}</td>
+                  <td class="py-3 pr-4 text-gray-500">{{ r.marks_obtained if r.marks_obtained is not none else "—" }}</td>
+                  <td class="py-3">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen">
+                      {{ r.submission_status | replace('_', ' ') | title }}
+                    </span>
                   </td>
                 {% endif %}
               </tr>
               {% else %}
-              <tr><td colspan="5" class="py-8 text-center text-gray-400">No students enrolled in this course offering.</td></tr>
+              <tr><td colspan="5" class="py-8 text-center text-gray-400">No students enrolled in this course offering yet.</td></tr>
               {% endfor %}
             </tbody>
           </table>
+        </div>
 
-          {% set has_editable = roster | selectattr('submission_status', 'equalto', 'not_submitted') | list %}
-          {% if has_editable %}
-          <div class="mt-6 flex items-center justify-between">
-            <p class="text-xs text-gray-400">Leaving marks blank for a "Present" student will skip that row — fill it in and resubmit.</p>
-            <button type="submit" class="bg-muSlate text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-muSlateDark">
-              Submit for Review
-            </button>
-          </div>
-          {% endif %}
-        </form>
-      </div>
+        <button type="submit"
+                class="mt-5 px-6 py-3 rounded-xl text-sm font-bold text-white bg-muSlate hover:bg-muSlateDark">
+          Submit for Admin Review
+        </button>
+      </form>
+
     </div>
   </div>
 </body>

@@ -1,0 +1,58 @@
+<aside class="w-64 bg-white border-r border-gray-100 flex flex-col shrink-0">
+  <div class="p-6 border-b border-gray-100">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Metropolitan University Logo" class="h-10 w-auto object-contain">
+  </div>
+
+  <nav class="flex-1 p-4 space-y-1">
+    <a href="{{ url_for('admin.dashboard') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.dashboard' else 'text-gray-600 hover:bg-gray-50' }}">
+      Dashboard
+    </a>
+    <a href="{{ url_for('admin.pending_results') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.pending_results' else 'text-gray-600 hover:bg-gray-50' }}">
+      Result Review
+    </a>
+    <a href="{{ url_for('admin.approved_results') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.approved_results' else 'text-gray-600 hover:bg-gray-50' }}">
+      Publish Results
+    </a>
+    <a href="{{ url_for('admin.faculty_approvals') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.faculty_approvals' else 'text-gray-600 hover:bg-gray-50' }}">
+      Faculty Approvals
+    </a>
+    <a href="{{ url_for('admin.payments') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.payments' else 'text-gray-600 hover:bg-gray-50' }}">
+      Payments
+    </a>
+    <a href="{{ url_for('admin.fees') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.fees' else 'text-gray-600 hover:bg-gray-50' }}">
+      Semester Fees
+    </a>
+    <a href="{{ url_for('admin.complaints') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.complaints' else 'text-gray-600 hover:bg-gray-50' }}">
+      Complaints
+    </a>
+    <a href="{{ url_for('admin.semesters') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.semesters' else 'text-gray-600 hover:bg-gray-50' }}">
+      Semesters
+    </a>
+    <a href="{{ url_for('admin.curriculum') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.curriculum' else 'text-gray-600 hover:bg-gray-50' }}">
+      Curriculum
+    </a>
+    <a href="{{ url_for('admin.routine_offerings') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.routine_offerings' else 'text-gray-600 hover:bg-gray-50' }}">
+      Routine &amp; Offerings
+    </a>
+    <a href="{{ url_for('admin.accounts') }}"
+       class="block px-4 py-2.5 rounded-xl text-sm font-semibold {{ 'text-white bg-muSlate' if request.endpoint == 'admin.accounts' else 'text-gray-600 hover:bg-gray-50' }}">
+      Accounts
+    </a>
+  </nav>
+
+  <div class="p-4 border-t border-gray-100">
+    <a href="{{ url_for('auth.login') }}" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-muRed border border-red-100 hover:bg-red-50">
+      Log Out
+    </a>
+  </div>
+</aside>

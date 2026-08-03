@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complaints | MU Guberno Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: {
+      muGray: '#f4f6fa', muSlate: '#3D5A80', muSlateDark: '#32496A',
+      muRed: '#C8102E', muGreen: '#1F8A50', muAmber: '#B8860B',
+    } } } }
+  </script>
+</head>
+<body class="bg-muGray min-h-screen font-sans text-gray-800">
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+        {% for category, message in messages %}
+          <div class="p-3 rounded-lg text-xs font-semibold shadow-lg {% if category == 'success' %} bg-green-50 text-green-700 border border-green-200 {% else %} bg-red-50 text-red-700 border border-red-200 {% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="flex min-h-screen">
+    {% include 'admin/_sidebar.html' %}
+
+    <div class="flex-1 p-8">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-4xl">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <h1 class="text-lg font-bold text-gray-800">Complaints</h1>
+          <div class="flex bg-gray-100 p-1 rounded-xl">
+            <a href="{{ url_for('admin.complaints', status='pending') }}" class="px-4 py-1.5 text-xs font-bold rounded-lg {{ 'bg-white text-muSlate shadow-sm' if status_filter == 'pending' else 'text-gray-500' }}">Pending</a>
+            <a href="{{ url_for('admin.complaints', status='resolved') }}" class="px-4 py-1.5 text-xs font-bold rounded-lg {{ 'bg-white text-muSlate shadow-sm' if status_filter == 'resolved' else 'text-gray-500' }}">Resolved</a>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          {% for c in complaints %}
+          <div class="p-4 rounded-xl bg-gray-50">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p class="text-sm font-semibold text-gray-800">{{ c.subject }}</p>
+                <p class="text-xs text-gray-500 mt-0.5">
+                  {{ c.student_name }} ({{ c.student_id }}) &middot;
+                  <span class="font-semibold">{{ c.category.title() }}</span> &middot;
+                  {{ c.created_at.strftime('%b %d, %Y') }}
+                </p>
+              </div>
+              {% if c.status == 'resolved' %}
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-muGreen shrink-0">Resolved</span>
+              {% else %}
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-muAmber shrink-0">Pending</span>
+              {% endif %}
+            </div>
+
+            <p class="text-sm text-gray-600 mt-3 bg-white rounded-lg p-3 border border-gray-100">{{ c.message }}</p>
+
+            {% if c.status == 'resolved' %}
+              <p class="text-sm text-gray-600 mt-2 bg-green-50 rounded-lg p-3 border border-green-100">
+                <span class="font-semibold text-muGreen">Your response:</span> {{ c.admin_response }}
+              </p>
+            {% else %}
+              <form action="{{ url_for('admin.resolve_complaint', complaint_id=c.id) }}" method="POST" class="mt-3 flex gap-2">
+                <input type="text" name="admin_response" required placeholder="Write a response and resolve..."
+                       class="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:ring-2 focus:ring-muSlate outline-none">
+                <button type="submit" class="px-4 py-2 rounded-lg text-xs font-bold text-white bg-muSlate hover:bg-muSlateDark shrink-0">
+                  Resolve
+                </button>
+              </form>
+            {% endif %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-400 py-6 text-center">No {{ status_filter }} complaints.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

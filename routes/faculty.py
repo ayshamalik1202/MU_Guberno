@@ -12,6 +12,7 @@ actually assigned to (co.faculty_id check on every route).
 from functools import wraps
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request
 from database import get_db
+from werkzeug.security import generate_password_hash, check_password_hash
 
 faculty_bp = Blueprint('faculty', __name__, url_prefix='/faculty')
 
@@ -78,6 +79,132 @@ def dashboard():
     conn.close()
 
     return render_template('faculty/dashboard.html', faculty=faculty, offerings=offerings)
+
+
+# ------------------------------------------------------------------
+# ROUTINE — view class schedule for assigned course offerings
+# ------------------------------------------------------------------
+@faculty_bp.route('/routine')
+@faculty_required
+def routine():
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    faculty_id = session['user_id']
+
+    cur.execute("SELECT * FROM staff WHERE id = %s", (faculty_id,))
+    faculty = cur.fetchone()
+
+    cur.execute("""
+        SELECT co.class_time, co.room,
+               c.course_code, c.course_name, sem.name AS semester_name
+        FROM course_offerings co
+        JOIN courses c ON co.course_id = c.id
+        JOIN semesters sem ON co.semester_id = sem.id
+        WHERE co.faculty_id = %s AND sem.is_current = 1
+        ORDER BY co.class_time
+    """, (faculty_id,))
+    routines = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('faculty/routine.html', faculty=faculty, routines=routines)
+
+
+# ------------------------------------------------------------------
+# PROFILE — view faculty member account details
+# ------------------------------------------------------------------
+@faculty_bp.route('/profile')
+@faculty_required
+def profile():
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    faculty_id = session['user_id']
+
+    cur.execute("SELECT * FROM staff WHERE id = %s", (faculty_id,))
+    faculty = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return render_template('faculty/profile.html', faculty=faculty)
+
+
+# ------------------------------------------------------------------
+# PROFILE — update email (must stay @metrouni.edu.bd)
+# ------------------------------------------------------------------
+@faculty_bp.route('/profile/update-email', methods=['POST'])
+@faculty_required
+def update_email():
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    faculty_id = session['user_id']
+
+    new_email = request.form.get('new_email', '').strip().lower()
+
+    if not new_email.endswith('@metrouni.edu.bd'):
+        flash("Email must end with @metrouni.edu.bd.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.profile'))
+
+    try:
+        cur.execute("UPDATE staff SET email = %s WHERE id = %s", (new_email, faculty_id))
+        conn.commit()
+        session['email'] = new_email
+        flash("Email updated successfully.", "success")
+    except Exception as err:
+        conn.rollback()
+        if '1062' in str(err):
+            flash("That email is already in use by another account.", "error")
+        else:
+            flash(f"Error updating email: {err}", "error")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for('faculty.profile'))
+
+
+# ------------------------------------------------------------------
+# PROFILE — update password (requires current password)
+# ------------------------------------------------------------------
+@faculty_bp.route('/profile/update-password', methods=['POST'])
+@faculty_required
+def update_password():
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    faculty_id = session['user_id']
+
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+
+    cur.execute("SELECT password FROM staff WHERE id = %s", (faculty_id,))
+    row = cur.fetchone()
+
+    if not row or not check_password_hash(row['password'], current_password):
+        flash("Current password is incorrect.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.profile'))
+
+    if len(new_password) < 8:
+        flash("New password must be at least 8 characters.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.profile'))
+
+    if new_password != confirm_password:
+        flash("New password and confirmation do not match.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('faculty.profile'))
+
+    hashed = generate_password_hash(new_password)
+    cur.execute("UPDATE staff SET password = %s WHERE id = %s", (hashed, faculty_id))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Password updated successfully.", "success")
+    return redirect(url_for('faculty.profile'))
 
 
 # ------------------------------------------------------------------

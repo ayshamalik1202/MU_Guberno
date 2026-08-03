@@ -1,5 +1,4 @@
 """
-routes/student.py
 Student panel: dashboard, transcript, course/credit tracking,
 semester registration, fee payments, and complaints.
 
@@ -70,15 +69,11 @@ def dashboard():
     total_required = float(cur.fetchone()['total'] or 0)
     credits_remaining = max(total_required - total_credits_completed, 0)
 
-    # --- Full curriculum with per-student completion status ---
-    # NOTE: submission_status is a workflow ENUM ('not_submitted' -> 'submitted_by_faculty'
-    # -> 'approved_by_admin' -> 'published'), so MAX() on the raw string is wrong: it compares
-    # alphabetically ('submitted_by_faculty' > 'published'), which can hide a published result
-    # behind a stale pending one from a retake. We rank each status numerically first, take the
-    # MAX() of the rank, then map the winning rank back to its label.
+    # --- Full curriculum with per-student completion status, grouped by
+    #     program semester_level (1.1, 1.2, ... 4.3) ---
     cur.execute("""
-        SELECT c.id AS course_id, c.course_code, c.course_name, crc.credits,
-               MAX(e.credit_completed) AS credit_completed,
+        SELECT c.id AS course_id, c.course_code, c.course_name, crc.credits, crc.semester_level,
+               COALESCE(MAX(e.credit_completed), 0) AS credit_completed,
                MAX(e.is_supplementary) AS is_supplementary,
                MAX(CASE e.submission_status
                        WHEN 'not_submitted'        THEN 1
@@ -92,8 +87,8 @@ def dashboard():
         LEFT JOIN course_offerings co ON co.course_id = c.id
         LEFT JOIN enrollments e
                ON e.course_offering_id = co.id AND e.student_id = %s
-        GROUP BY c.id, c.course_code, c.course_name, crc.credits
-        ORDER BY c.course_code
+        GROUP BY c.id, c.course_code, c.course_name, crc.credits, crc.semester_level
+        ORDER BY crc.semester_level, c.course_code
     """, (student_id,))
     curriculum_rows = cur.fetchall()
 
@@ -121,20 +116,27 @@ def dashboard():
     """, (student_id,))
     registered_courses = cur.fetchall()
 
-    # --- Current semester + payment status ---
+    # --- Current semester + payment status (per-student fee, from student_fees) ---
     cur.execute("SELECT * FROM semesters WHERE is_current = TRUE LIMIT 1")
     current_semester = cur.fetchone()
 
     payment_due = None
     if current_semester:
         cur.execute("""
-            SELECT * FROM payments
+            SELECT amount_due FROM student_fees
             WHERE student_id = %s AND semester_id = %s
-            ORDER BY submitted_at DESC LIMIT 1
         """, (student_id, current_semester['id']))
-        latest_payment = cur.fetchone()
-        if not latest_payment or latest_payment['status'] != 'verified':
-            payment_due = current_semester['fee_amount']
+        fee_row = cur.fetchone()
+
+        if fee_row:
+            cur.execute("""
+                SELECT * FROM payments
+                WHERE student_id = %s AND semester_id = %s
+                ORDER BY submitted_at DESC LIMIT 1
+            """, (student_id, current_semester['id']))
+            latest_payment = cur.fetchone()
+            if not latest_payment or latest_payment['status'] != 'verified':
+                payment_due = fee_row['amount_due']
 
     # --- Payment history (own payments only) ---
     cur.execute("""
@@ -147,9 +149,6 @@ def dashboard():
     payment_history = cur.fetchall()
 
     # --- Notifications: newly published results + payment reminders ---
-    # NOTE: MySQL rejects `SELECT DISTINCT ... ORDER BY <col not in SELECT list>`
-    # (error 3065: "incompatible with DISTINCT"). sem.result_publish_date must be
-    # in the SELECT list for the ORDER BY to be valid.
     notifications = []
     cur.execute("""
         SELECT DISTINCT sem.name, sem.result_publish_date
@@ -186,6 +185,89 @@ def dashboard():
 
 
 # ------------------------------------------------------------------
+# SEMESTER REGISTRATION — student self-enrolls into course offerings
+# for the current semester (no SQL needed by admin/dev anymore)
+# ------------------------------------------------------------------
+@student_bp.route('/register', methods=['GET', 'POST'])
+@student_required
+def register():
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    student_id = session['user_id']
+
+    cur.execute("SELECT * FROM semesters WHERE is_current = TRUE LIMIT 1")
+    current_semester = cur.fetchone()
+
+    if not current_semester:
+        flash("No active semester is open for registration right now.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('student.dashboard'))
+
+    if request.method == 'POST':
+        offering_id = request.form.get('offering_id', type=int)
+
+        if not offering_id:
+            flash("Please select a course to register.", "error")
+        else:
+            # Confirm the offering belongs to the current semester
+            cur.execute("""
+                SELECT id FROM course_offerings
+                WHERE id = %s AND semester_id = %s
+            """, (offering_id, current_semester['id']))
+            offering = cur.fetchone()
+
+            if not offering:
+                flash("Invalid course offering.", "error")
+            else:
+                try:
+                    cur.execute("""
+                        INSERT INTO enrollments (student_id, course_offering_id)
+                        VALUES (%s, %s)
+                    """, (student_id, offering_id))
+                    conn.commit()
+                    flash("Successfully registered for the course.", "success")
+                except Exception as err:
+                    conn.rollback()
+                    if 'unique_enrollment' in str(err) or '1062' in str(err):
+                        flash("You are already registered for this course.", "error")
+                    else:
+                        flash(f"Registration error: {err}", "error")
+
+    # Courses already registered for this semester (to mark them)
+    cur.execute("""
+        SELECT co.id AS offering_id
+        FROM enrollments e
+        JOIN course_offerings co ON e.course_offering_id = co.id
+        WHERE e.student_id = %s AND co.semester_id = %s
+    """, (student_id, current_semester['id']))
+    already_registered = {row['offering_id'] for row in cur.fetchall()}
+
+    # All course offerings available this semester
+    cur.execute("""
+        SELECT co.id AS offering_id, c.course_code, c.course_name,
+               d.short_form AS department, st.name AS faculty_name,
+               co.class_time, co.room
+        FROM course_offerings co
+        JOIN courses c ON co.course_id = c.id
+        LEFT JOIN departments d ON c.department_id = d.id
+        LEFT JOIN staff st ON co.faculty_id = st.id
+        WHERE co.semester_id = %s
+        ORDER BY d.short_form, c.course_code
+    """, (current_semester['id'],))
+    offerings = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        'student/register.html',
+        current_semester=current_semester,
+        offerings=offerings,
+        already_registered=already_registered,
+    )
+
+
+# ------------------------------------------------------------------
 # TRANSCRIPT (full or semester-wise) — PUBLISHED results only
 # ------------------------------------------------------------------
 @student_bp.route('/transcript')
@@ -195,17 +277,17 @@ def transcript():
     cur = conn.cursor(dictionary=True)
     student_id = session['user_id']
 
-    view = request.args.get('view', 'full')          # 'full' or 'semester'
+    view = request.args.get('view', 'full')
     semester_id = request.args.get('semester_id', type=int)
 
     query = """
-        SELECT c.course_code, c.course_name, crc.credits, e.grade,
+        SELECT e.id AS enrollment_id, c.course_code, c.course_name, crc.credits, e.grade,
                e.is_supplementary, e.exam_attendance, sem.id AS semester_id,
                sem.name AS semester_name
         FROM enrollments e
         JOIN course_offerings co ON e.course_offering_id = co.id
         JOIN courses c ON co.course_id = c.id
-        JOIN curriculum crc ON crc.course_id = c.id
+        LEFT JOIN curriculum crc ON crc.course_id = c.id
         JOIN semesters sem ON co.semester_id = sem.id
         WHERE e.student_id = %s AND e.submission_status = 'published'
     """
@@ -218,6 +300,7 @@ def transcript():
     query += " ORDER BY sem.id, c.course_code"
     cur.execute(query, tuple(params))
     transcript_rows = cur.fetchall()
+    # ...rest unchanged
 
     # Semester list for the dropdown (only semesters with published results)
     cur.execute("""
@@ -243,7 +326,9 @@ def transcript():
 
 
 # ------------------------------------------------------------------
-# PAYMENTS — student submits a claim; admin verifies it separately
+# PAYMENTS — student submits a claim; admin verifies it separately.
+# Amount is looked up from student_fees (per-student, per-semester),
+# not a flat semester-wide fee.
 # ------------------------------------------------------------------
 @student_bp.route('/payments/pay', methods=['POST'])
 @student_required
@@ -266,9 +351,20 @@ def pay():
         return redirect(url_for('student.dashboard'))
 
     cur.execute("""
+        SELECT amount_due FROM student_fees
+        WHERE student_id = %s AND semester_id = %s
+    """, (student_id, current_semester['id']))
+    fee_row = cur.fetchone()
+
+    if not fee_row:
+        flash("No fee has been assigned to you for this semester yet. Contact admin.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('student.dashboard'))
+
+    cur.execute("""
         INSERT INTO payments (student_id, semester_id, amount, method, account_reference, status)
         VALUES (%s, %s, %s, %s, %s, 'pending')
-    """, (student_id, current_semester['id'], current_semester['fee_amount'], method, account_ref))
+    """, (student_id, current_semester['id'], fee_row['amount_due'], method, account_ref))
     conn.commit()
     cur.close()
     conn.close()
@@ -278,7 +374,7 @@ def pay():
 
 
 # ------------------------------------------------------------------
-# COMPLAINTS
+# COMPLAINTS (general — payment/access/other, not tied to a specific result)
 # ------------------------------------------------------------------
 @student_bp.route('/complaints', methods=['GET', 'POST'])
 @student_required
@@ -314,6 +410,58 @@ def complaints():
     conn.close()
 
     return render_template('student/complaints.html', complaints=complaint_history)
+
+
+# ------------------------------------------------------------------
+# RESULT COMPLAINT — student disputes a specific published grade.
+# Feeds result_complaints, which admin.dashboard() already reads and
+# admin.knock_faculty() already knows how to forward back to faculty.
+# ------------------------------------------------------------------
+@student_bp.route('/result/<int:enrollment_id>/complain', methods=['POST'])
+@student_required
+def complain_about_result(enrollment_id):
+    conn = get_db()
+    cur = conn.cursor(dictionary=True)
+    student_id = session['user_id']
+
+    reason = request.form.get('reason', '').strip()
+    if not reason:
+        flash("Please describe the issue with this result.", "error")
+        return redirect(url_for('student.transcript'))
+
+    # Only allow a complaint on a result that's actually published and
+    # belongs to this student.
+    cur.execute("""
+        SELECT e.id FROM enrollments e
+        WHERE e.id = %s AND e.student_id = %s AND e.submission_status = 'published'
+    """, (enrollment_id, student_id))
+    enrollment = cur.fetchone()
+
+    if not enrollment:
+        flash("You can only raise a complaint on a published result.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('student.transcript'))
+
+    # Prevent duplicate open complaints on the same result
+    cur.execute("""
+        SELECT id FROM result_complaints
+        WHERE enrollment_id = %s AND status IN ('pending', 'sent_to_faculty')
+    """, (enrollment_id,))
+    if cur.fetchone():
+        flash("You already have an open complaint for this result.", "error")
+        cur.close(); conn.close()
+        return redirect(url_for('student.transcript'))
+
+    cur.execute("""
+        INSERT INTO result_complaints (enrollment_id, reason)
+        VALUES (%s, %s)
+    """, (enrollment_id, reason))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Complaint submitted — admin will review and may forward it to your instructor.", "success")
+    return redirect(url_for('student.transcript'))
 
 
 # ------------------------------------------------------------------

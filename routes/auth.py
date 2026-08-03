@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from database import get_db
+from werkzeug.security import generate_password_hash, check_password_hash
 import mysql.connector
 
 auth_bp = Blueprint('auth', __name__)
@@ -9,36 +10,36 @@ def signup():
     if request.method == 'POST':
         role = request.form.get('signup_role', 'student')
         name = request.form.get('name', '').strip()
-        user_id = request.form.get('student_id', '').strip()  # Contains Student ID / Teacher ID / Admin ID
+        user_id = request.form.get('student_id', '').strip()
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '').strip()
         confirm_password = request.form.get('confirm_password', '').strip()
-        
+
         if password != confirm_password:
             flash('Passwords do not match!', 'danger')
             return render_template('login.html', signup_active=True)
-            
+
+        hashed_password = generate_password_hash(password)
+
         db = get_db()
         cursor = db.cursor()
-        
+
         try:
             if role == 'student':
-                # Insert into students table
                 cursor.execute(
-                    "INSERT INTO students (student_id, name, email, password) VALUES (%s, %s, %s, %s)", 
-                    (user_id, name, email, password)
+                    "INSERT INTO students (student_id, name, email, password) VALUES (%s, %s, %s, %s)",
+                    (user_id, name, email, hashed_password)
                 )
             else:
-                # Insert into staff table for 'faculty' or 'admin'
                 cursor.execute(
-                    "INSERT INTO staff (staff_id, name, email, password, role) VALUES (%s, %s, %s, %s, %s)", 
-                    (user_id, name, email, password, role)
+                    "INSERT INTO staff (staff_id, name, email, password, role) VALUES (%s, %s, %s, %s, %s)",
+                    (user_id, name, email, hashed_password, role)
                 )
-                
+
             db.commit()
             flash('Account created successfully! Please sign in.', 'success')
             return redirect(url_for('auth.login'))
-            
+
         except mysql.connector.Error as err:
             db.rollback()
             if err.errno == 1062:
@@ -49,7 +50,7 @@ def signup():
         finally:
             cursor.close()
             db.close()
-            
+
     return render_template('login.html', signup_active=True)
 
 
@@ -59,23 +60,23 @@ def login():
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '').strip()
         role = request.form.get('role', 'student')
-        
+
         db = get_db()
         cursor = db.cursor(dictionary=True)
-        
+
         try:
             if role == 'student':
-                cursor.execute("SELECT * FROM students WHERE LOWER(email) = %s AND password = %s", (email, password))
+                cursor.execute("SELECT * FROM students WHERE LOWER(email) = %s", (email,))
                 user = cursor.fetchone()
-                if user:
+                if user and check_password_hash(user['password'], password):
                     session['user_id'] = user['id']
                     session['role'] = 'student'
                     session['name'] = user['name']
                     return redirect(url_for('student.dashboard'))
             else:
-                cursor.execute("SELECT * FROM staff WHERE LOWER(email) = %s AND password = %s AND role = %s", (email, password, role))
+                cursor.execute("SELECT * FROM staff WHERE LOWER(email) = %s AND role = %s", (email, role))
                 user = cursor.fetchone()
-                if user:
+                if user and check_password_hash(user['password'], password):
                     session['user_id'] = user['id']
                     session['role'] = user['role']
                     session['name'] = user['name']
@@ -83,12 +84,12 @@ def login():
                         return redirect(url_for('admin.dashboard'))
                     elif user['role'] == 'faculty':
                         return redirect(url_for('faculty.dashboard'))
-            
+
             flash('Invalid email, password, or role selection.', 'danger')
         except mysql.connector.Error as err:
             flash(f"Database error: {err}", 'danger')
         finally:
             cursor.close()
             db.close()
-            
+
     return render_template('login.html')
